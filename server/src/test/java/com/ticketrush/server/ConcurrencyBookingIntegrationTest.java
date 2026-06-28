@@ -8,17 +8,18 @@ import com.ticketrush.server.domain.order.OrderStatus;
 import com.ticketrush.server.domain.user.User;
 import com.ticketrush.server.domain.user.UserRepository;
 import com.ticketrush.server.infrastructure.redis.RedisReservationService;
+import com.ticketrush.server.infrastructure.graphql.SeatEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.test.context.ActiveProfiles;
+import reactor.core.publisher.Flux;
+import reactor.test.StepVerifier;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -51,6 +52,9 @@ public class ConcurrencyBookingIntegrationTest {
 
     @Autowired
     private RedisReservationService redisReservationService;
+
+    @Autowired
+    private SeatEventPublisher seatEventPublisher;
 
     private Concert concert;
     private SeatZone zone;
@@ -107,7 +111,7 @@ public class ConcurrencyBookingIntegrationTest {
     }
 
     @Test
-    void testConcurrentBookingForSingleSeat() throws InterruptedException {
+    void testConcurrentBookingForSingleSeatAndSubscriptionBroadcast() throws InterruptedException {
         int numberOfThreads = 20;
         ExecutorService executorService = Executors.newFixedThreadPool(numberOfThreads);
         CountDownLatch latch = new CountDownLatch(1);
@@ -115,6 +119,19 @@ public class ConcurrencyBookingIntegrationTest {
 
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failureCount = new AtomicInteger(0);
+
+        // Subscribe to seat events stream before booking
+        Flux<SeatUpdatedPayload> eventFlux = seatEventPublisher.getEventStream()
+                .filter(event -> event.getConcertId().equals(concert.getId()));
+
+        StepVerifier verifier = StepVerifier.create(eventFlux)
+                .assertNext(event -> {
+                    assertThat(event.getSeatId()).isEqualTo(seat.getId());
+                    assertThat(event.getStatus()).isEqualTo("HELD");
+                    assertThat(event.getHeldByUserId()).isNotNull();
+                })
+                .thenCancel()
+                .verifyLater();
 
         for (int i = 0; i < numberOfThreads; i++) {
             final User user = testUsers.get(i);
@@ -134,22 +151,24 @@ public class ConcurrencyBookingIntegrationTest {
         latch.countDown(); // Kick off all threads
         doneLatch.await(); // Wait for execution to finish
 
-        // Assertions
+        // Assertions for booking
         assertThat(successCount.get()).isEqualTo(1);
         assertThat(failureCount.get()).isEqualTo(numberOfThreads - 1);
+
+        // Verify that subscription broadcast received exactly 1 HELD event
+        verifier.verify(Duration.ofSeconds(3));
 
         // Double check seat status in DB and Redis
         Seat updatedSeat = seatRepository.findById(seat.getId()).orElseThrow();
         assertThat(updatedSeat.getStatus()).isEqualTo(SeatStatus.HELD);
         
-        String heldKey = "concert:" + concert.getId() + ":held";
         Boolean isHeldInRedis = redisReservationService.holdSeat(concert.getId(), seat.getId(), UUID.randomUUID());
         // Since it's held, trying to hold it again must return false
         assertThat(isHeldInRedis).isFalse();
     }
 
     @Test
-    void testRabbitMQDelayedExpirationRelease() throws InterruptedException {
+    void testRabbitMQDelayedExpirationReleaseAndBroadcast() throws InterruptedException {
         // Hold seat with a short delay of 1.5 seconds (1500 ms)
         User user = testUsers.get(0);
         Order order = bookingService.holdSeat(seat.getId(), user.getId(), 1500);

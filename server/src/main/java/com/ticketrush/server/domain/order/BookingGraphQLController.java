@@ -18,6 +18,7 @@ public class BookingGraphQLController {
 
     private final BookingService bookingService;
     private final UserRepository userRepository;
+    private final com.ticketrush.server.infrastructure.graphql.SeatEventPublisher seatEventPublisher;
 
     @MutationMapping
     @PreAuthorize("isAuthenticated()")
@@ -30,5 +31,12 @@ public class BookingGraphQLController {
         // 10 minutes lease (600,000 ms)
         long delayMillis = 600_000;
         return bookingService.holdSeat(UUID.fromString(seatId), user.getId(), delayMillis);
+    }
+
+    @org.springframework.graphql.data.method.annotation.SubscriptionMapping
+    public reactor.core.publisher.Flux<com.ticketrush.server.domain.concert.SeatUpdatedPayload> seatStatusUpdated(@Argument String concertId) {
+        UUID concertUuid = UUID.fromString(concertId);
+        return seatEventPublisher.getEventStream()
+                .filter(event -> event.getConcertId().equals(concertUuid));
     }
 }

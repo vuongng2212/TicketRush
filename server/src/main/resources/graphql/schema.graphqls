@@ -1,11 +1,48 @@
 type Query {
     me: User
+    getConcertDetail(concertId: ID!): ConcertDetail!
 }
 
 type Mutation {
     register(input: RegisterInput!): User!
     login(input: LoginInput!): AuthPayload!
     holdSeat(seatId: ID!): Order!
+}
+
+type Subscription {
+    seatStatusUpdated(concertId: ID!): SeatUpdatedPayload!
+}
+
+type ConcertDetail {
+    id: ID!
+    title: String!
+    venue: String!
+    startTime: String!
+    status: String!
+    zones: [SeatZoneDetail!]!
+}
+
+type SeatZoneDetail {
+    id: ID!
+    name: String!
+    price: Float!
+    totalSeats: Int!
+    seats: [SeatDetail!]!
+}
+
+type SeatDetail {
+    id: ID!
+    seatNumber: String!
+    status: String!
+    heldByUserId: ID
+    heldUntil: String
+}
+
+type SeatUpdatedPayload {
+    seatId: ID!
+    concertId: ID!
+    status: String!
+    heldByUserId: ID
 }
 
 type User {

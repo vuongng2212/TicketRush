@@ -27,6 +27,7 @@ public class BookingService {
     private final TicketRepository ticketRepository;
     private final RedisReservationService redisReservationService;
     private final ExpirationMessageProducer expirationProducer;
+    private final com.ticketrush.server.infrastructure.graphql.SeatEventPublisher seatEventPublisher;
 
     @Transactional
     public Order holdSeat(UUID seatId, UUID userId, long delayMillis) {
@@ -74,6 +75,14 @@ public class BookingService {
             // 5. Send Expiration message to RabbitMQ
             expirationProducer.sendExpirationMessage(order.getId(), delayMillis);
 
+            // 6. Broadcast event
+            seatEventPublisher.publish(com.ticketrush.server.domain.concert.SeatUpdatedPayload.builder()
+                    .seatId(seatId)
+                    .concertId(zone.getConcertId())
+                    .status("HELD")
+                    .heldByUserId(userId)
+                    .build());
+
             return order;
         } catch (Exception e) {
             log.error("Failed to hold seat in database, triggering Redis rollback for seat: {}", seatId, e);
@@ -114,6 +123,14 @@ public class BookingService {
                 if (zone != null) {
                     // Release on Redis
                     redisReservationService.releaseSeat(zone.getConcertId(), seat.getId());
+                    
+                    // Broadcast event
+                    seatEventPublisher.publish(com.ticketrush.server.domain.concert.SeatUpdatedPayload.builder()
+                            .seatId(seat.getId())
+                            .concertId(zone.getConcertId())
+                            .status("AVAILABLE")
+                            .heldByUserId(null)
+                            .build());
                 }
             }
         });
