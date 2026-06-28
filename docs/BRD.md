@@ -27,7 +27,9 @@ Khi các nghệ sĩ nổi tiếng tổ chức sự kiện, hàng chục ngàn ng
 *   **Trang thông tin sự kiện & sơ đồ ghế:** Hiển thị chi tiết concert và sơ đồ ghế tương tác dạng SVG.
 *   **Hệ thống giữ ghế tạm thời (Ticket Holding):** Cho phép giữ ghế tối đa 10 phút để thực hiện thanh toán.
 *   **Thanh toán giả lập:** Tích hợp cổng thanh toán mô phỏng (Mock Payment) để xác nhận giao dịch.
-*   **Soát vé tốc độ cao (Ticket Checking):** Cung cấp API gRPC cho thiết bị cầm tay tại cổng soát vé để quét mã QR và check-in.
+*   **Soát vé tốc độ cao (Ticket Checking):**
+    *   **Web Admin Scanner:** Một trang web dành riêng cho nhân viên soát vé (Gatekeeper) tích hợp camera quét mã QR trên thiết bị di động/máy tính bảng. Trang này gọi Next.js API Route đóng vai trò làm gRPC Client để giao tiếp với Spring Boot backend.
+    *   **CLI Simulation Tool:** Script tự động (Python/Go) giả lập hàng ngàn lượt check-in đồng thời qua gRPC để kiểm thử tải (Load Test) cho gRPC Server.
 *   **Cập nhật real-time:** Đồng bộ hóa trạng thái ghế trống/đang giữ/đã bán tới tất cả khách hàng đang xem sơ đồ.
 
 ### Ngoài phạm vi (Out-of-Scope)

@@ -14,9 +14,10 @@ Tài liệu SRS này mô tả chi tiết các yêu cầu chức năng (Functiona
 *   **Hàng đợi tin nhắn:** RabbitMQ 3.12+.
 
 ### 2.2 Tác nhân hệ thống (User Classes and Characteristics)
-1.  **Khán giả (Buyer):** Người dùng có nhu cầu tìm hiểu concert, chọn ghế, giữ vé và thanh toán trực tuyến.
-2.  **Nhân viên soát vé (Gate Keeper):** Sử dụng thiết bị chuyên dụng gọi gRPC Client để quét QR check-in tại cửa sự kiện.
+1.  **Khán giả (Buyer):** Người dùng có nhu cầu tìm hiểu concert, chọn ghế, giữ vé và thanh toán trực tuyến qua giao diện Web Next.js.
+2.  **Nhân viên soát vé (Gate Keeper):** Nhân viên của ban tổ chức đứng tại cửa soát vé, sử dụng thiết bị di động truy cập vào trang Web Admin Scanner để quét mã QR vé của khán giả. Trang web này sẽ gọi gRPC Client gửi yêu cầu xác thực tới backend.
 3.  **Hệ thống (System/Cron):** Tự động quét và thu hồi các giao dịch quá hạn thanh toán.
+4.  **CLI Simulator (Hệ thống giả lập):** Script tự động đóng vai trò là gRPC client giả lập gửi đồng thời hàng ngàn yêu cầu check-in để đo lường hiệu năng của gRPC Server.
 
 ---
 

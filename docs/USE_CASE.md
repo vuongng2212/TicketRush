@@ -50,18 +50,22 @@ Hệ thống bao gồm 3 tác nhân chính tương tác trực tiếp:
 
 ### UC-03: Soát Vé Tại Cổng (Verify Ticket)
 *   **Tác nhân chính:** Nhân viên soát vé (Gate Keeper).
-*   **Mục tiêu:** Xác thực vé của khán giả khi vào cổng concert thông qua giao thức gRPC.
+*   **Mục tiêu:** Xác thực vé của khán giả khi vào cổng concert thông qua giao diện Web Admin Scanner tích hợp Camera và giao thức gRPC.
 *   **Tiền điều kiện:** Khán giả đưa mã QR Code chứa `ticketCode` cho nhân viên soát vé.
 *   **Luồng sự kiện chính (Basic Flow):**
-    1. Nhân viên soát vé dùng thiết bị cầm tay quét QR Code.
-    2. Thiết bị gửi request gRPC `VerifyTicket(ticketCode)` đến port 50051 của Spring Boot.
-    3. Spring Boot gRPC Server tiếp nhận request và truy vấn database tìm `Ticket` theo `ticketCode`.
-    4. Hệ thống xác nhận vé hợp lệ (`status = COMPLETED` và `checkInStatus = FALSE`).
-    5. Hệ thống cập nhật `checkInStatus = TRUE` và ghi nhận `checkInTime`.
-    6. gRPC Server trả về response: `valid = TRUE`, thông tin ghế và tên người dùng.
-    7. Thiết bị quét hiển thị màn hình xanh lá: *"Hợp lệ. Mời vào!"*.
+    1. Nhân viên soát vé truy cập vào trang Web Admin Scanner trên thiết bị di động.
+    2. Trang web yêu cầu quyền truy cập Camera và mở camera quét mã QR trên vé của khán giả.
+    3. Khi camera nhận diện được mã QR, Next.js Frontend trích xuất `ticketCode` và gửi yêu cầu xác thực lên Next.js API Route (gRPC Client).
+    4. Next.js API Route gửi request gRPC `VerifyTicket(ticketCode)` đến port 50051 của Spring Boot Backend.
+    5. Spring Boot gRPC Server tiếp nhận request và truy vấn database tìm `Ticket` theo `ticketCode`.
+    6. Hệ thống xác nhận vé hợp lệ (`status = COMPLETED` và `checkInStatus = FALSE`).
+    7. Hệ thống cập nhật `checkInStatus = TRUE` và ghi nhận `checkInTime`.
+    8. gRPC Server trả về response: `valid = TRUE`, thông tin ghế và tên người dùng.
+    9. Thiết bị quét hiển thị màn hình màu xanh lá: *"Hợp lệ. Mời vào! - Ghế: VIP A1"*.
 *   **Luồng ngoại lệ 1 (Vé không tồn tại):**
-    *   *Tại bước 4:* Không tìm thấy vé. Trả về `valid = FALSE`, `message = "Vé không hợp lệ hoặc không tồn tại"`.
+    *   *Tại bước 6:* Không tìm thấy vé. Trả về `valid = FALSE`, `message = "Vé không hợp lệ hoặc không tồn tại"`.
+    *   *Tại bước 9:* Thiết bị quét hiển thị màn hình màu đỏ: *"LỖI: Vé không tồn tại!"*.
 *   **Luồng ngoại lệ 2 (Vé đã sử dụng):**
-    *   *Tại bước 4:* Phát hiện `checkInStatus = TRUE`. Trả về `valid = FALSE`, `message = "Vé đã được sử dụng lúc [Time]"`.
+    *   *Tại bước 6:* Phát hiện `checkInStatus = TRUE`. Trả về `valid = FALSE`, `message = "Vé đã được sử dụng lúc [Time]"`.
+    *   *Tại bước 9:* Thiết bị quét hiển thị màn hình màu đỏ hoặc vàng: *"CẢNH BÁO: Vé đã được sử dụng trước đó!"*.
 *   **Hậu điều kiện:** Vé hợp lệ được đánh dấu đã check-in, không thể tái sử dụng.
