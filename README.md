@@ -59,41 +59,10 @@ Toàn bộ tài liệu phân tích nghiệp vụ và thiết kế kỹ thuật c
 -   **[SRS (Software Requirements Specification)](/docs/SRS.md):** Yêu cầu chức năng, phi chức năng và chỉ số hiệu năng cụ thể.
 -   **[Use Case Specification](/docs/USE_CASE.md):** Đặc tả luồng xử lý chi tiết cho các use case cốt lõi.
 -   **[System Architecture & Design](/docs/ARCHITECTURE.md):** Phân tích luồng dữ liệu, biểu đồ trình tự (Sequence Diagrams) bằng Mermaid.
+-   **[Agile Roadmap & Sprints](/docs/AGILE_ROADMAP.md):** Phân chia lộ trình Sprint và các task phát triển theo mô hình Scrum.
 
 ---
 
-## 📅 Lộ Trình Phát Triển Agile / Scrum (Agile Roadmap)
+## 🚀 Hướng Dẫn Khởi Chạy Nhanh (Quick Start)
 
-Dự án được chia làm **4 Sprints** (mỗi Sprint dự kiến kéo dài 1-2 tuần làm việc):
-
-### 🔄 Sprint 1: Setup Infrastructure, Database & Core Auth
-*   **Mục tiêu:** Dựng xong môi trường Docker Compose, thiết kế database entity, migrations và API Đăng nhập/Đăng ký.
-*   **Các Task chính:**
-    1. Khởi chạy `docker-compose.yml` (Postgres, Redis, RabbitMQ với delayed plugin).
-    2. Viết Migration/Schema tạo bảng trong PostgreSQL.
-    3. Cài đặt Spring Security + JWT Authentication.
-    4. Thiết kế các schema GraphQL đầu tiên (`User`, `Concert`).
-
-### ⚡ Sprint 2: High-Concurrency Seat Holding Engine (Trọng tâm Backend)
-*   **Mục tiêu:** Triển khai core logic đặt giữ ghế tốc độ cao an toàn bằng Redis và tự động thu hồi bằng RabbitMQ.
-*   **Các Task chính:**
-    1. Viết Redis Service tích hợp Lua Script kiểm tra & giữ ghế (Seat Reservation).
-    2. Cấu hình RabbitMQ Delayed Message Exchange.
-    3. Viết Expiration Consumer để lắng nghe sự kiện timeout 10 phút để tự động hủy đơn và giải phóng ghế.
-    4. Viết các Unit Test / Integration Test chạy multi-threads kiểm tra Race Condition (chống trùng ghế).
-
-### 🌐 Sprint 3: GraphQL Real-time & Web Client (Next.js & SVG Map)
-*   **Mục tiêu:** Xây dựng Next.js frontend với sơ đồ ghế SVG động tương tác real-time qua GraphQL Subscriptions.
-*   **Các Task chính:**
-    1. Cấu hình Apollo Server WebSockets Subscriptions trên Spring Boot.
-    2. Dựng giao diện Next.js: Concert Detail, Interactive SVG Seat Map.
-    3. Kết nối GraphQL Subscriptions: Đồng bộ màu ghế tức thời khi có sự kiện `Hold` hoặc `Release` từ backend.
-    4. Dựng trang giả lập thanh toán Momo QR Code + idempotent webhook xử lý đơn hàng.
-
-### 🛡️ Sprint 4: gRPC Scanner, Load Test & Deployment
-*   **Mục tiêu:** Triển khai cổng soát vé gRPC B2B, kiểm thử tải hệ thống bằng k6 và hoàn thiện tài liệu.
-*   **Các Task chính:**
-    1. Định nghĩa Protobuf và sinh code gRPC Server trên Spring Boot.
-    2. Build trang Web Admin Scanner trên Next.js sử dụng Camera quét QR code gọi API Route (gRPC Client).
-    3. Viết script k6 load test hệ thống dưới tải 2,000+ RPS, ghi nhận báo cáo hiệu năng.
-    4. Hoàn thiện tài liệu README kết quả load test.
+*(Mục này sẽ được cập nhật chi tiết các lệnh khởi chạy backend, frontend và hạ tầng Docker sau khi hoàn thành Sprint 1).*
