@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # Database PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    container_name: ticketrush-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: ticketrush_user
+      POSTGRES_PASSWORD: ticketrush_password
+      POSTGRES_DB: ticketrush_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ticketrush-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ticketrush_user -d ticketrush_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis In-Memory Store
+  redis:
+    image: redis:7-alpine
+    container_name: ticketrush-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - ticketrush-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ with Delayed Message Exchange Plugin
+  rabbitmq:
+    build:
+      context: ./docker/rabbitmq
+      dockerfile: Dockerfile
+    container_name: ticketrush-rabbitmq
+    ports:
+      - "5672:5672"      # RabbitMQ AMQP port
+      - "15672:15672"    # Management Console port
+    environment:
+      RABBITMQ_DEFAULT_USER: ticketrush_mq_user
+      RABBITMQ_DEFAULT_PASS: ticketrush_mq_password
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - ticketrush-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+
+networks:
+  ticketrush-network:
+    driver: bridge
