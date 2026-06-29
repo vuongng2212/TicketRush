@@ -13,6 +13,7 @@
     "@grpc/grpc-js": "^1.14.4",
     "@grpc/proto-loader": "^0.8.1",
     "clsx": "^2.1.1",
+    "framer-motion": "^12.42.0",
     "graphql": "^17.0.1",
     "graphql-ws": "^6.0.8",
     "html5-qrcode": "^2.3.8",

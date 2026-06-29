@@ -5,7 +5,17 @@ import { gql } from '@apollo/client';
 import { useQuery, useMutation, useSubscription } from '@apollo/client/react';
 import { useAuth } from './context/AuthContext';
 import { LogOut, User as UserIcon, Ticket, RefreshCw, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { motion } from 'framer-motion'; // legacy import — keep for existing usage
+import {
+  HeroSection,
+  EventDetail,
+  CheckoutFlow,
+  EventCarousel,
+  Navigation,
+  AlertManager,
+} from './components';
 
+// GraphQL Queries & Mutations
 const GET_CONCERT_DETAIL = gql`
   query GetConcertDetail($concertId: ID!) {
     getConcertDetail(concertId: $concertId) {
@@ -75,12 +85,56 @@ const LOGIN = gql`
   }
 `;
 
-// Simple Concert ID for mock testing
+// Mock Concert ID for testing
 const MOCK_CONCERT_ID = "00000000-0000-0000-0000-000000000000";
+
+// Mock Events Data
+const MOCK_EVENTS = [
+  {
+    id: '1',
+    title: 'Electric Nights Festival',
+    artist: 'The Midnight Collective',
+    venue: 'Madison Square Garden',
+    date: 'July 15, 2026',
+    price: 89,
+    rating: 4.8,
+    image: 'https://picsum.photos/seed/electric-nights/800/600',
+  },
+  {
+    id: '2',
+    title: 'Summer Vibes',
+    artist: 'Luna Echo',
+    venue: 'Central Park Amphitheater',
+    date: 'July 22, 2026',
+    price: 65,
+    rating: 4.5,
+    image: 'https://picsum.photos/seed/summer-vibes/800/600',
+  },
+  {
+    id: '3',
+    title: 'Neon Nights',
+    artist: 'Synthwave Dreams',
+    venue: 'Barclays Center',
+    date: 'August 5, 2026',
+    price: 120,
+    rating: 4.9,
+    image: 'https://picsum.photos/seed/neon-nights/800/600',
+  },
+  {
+    id: '4',
+    title: 'Bass & Beats',
+    artist: 'DJ Cipher',
+    venue: 'Brooklyn Warehouse',
+    date: 'August 10, 2026',
+    price: 45,
+    rating: 4.6,
+    image: 'https://picsum.photos/seed/bass-beats/800/600',
+  },
+];
 
 export default function Home() {
   const { token, user, login, logout } = useAuth();
-  
+
   // Auth Form State
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
@@ -94,6 +148,8 @@ export default function Home() {
   const [currentOrder, setCurrentOrder] = useState<any>(null);
   const [paymentStep, setPaymentStep] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
+  const [alerts, setAlerts] = useState<Array<{ id: string; type: 'success' | 'error' | 'info'; message: string }>>([]);
 
   // Mutations
   const [registerMutate, { loading: registerLoading }] = useMutation(REGISTER);
@@ -108,7 +164,6 @@ export default function Home() {
 
   // Keep local seat map synchronized with query updates
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const concert = (data as any)?.getConcertDetail;
     if (concert?.zones) {
       const map: Record<string, any> = {};
@@ -126,7 +181,6 @@ export default function Home() {
     variables: { concertId: MOCK_CONCERT_ID },
     skip: !token,
     onData: ({ data: subData }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const updatedSeat = (subData?.data as any)?.seatStatusUpdated;
       if (updatedSeat) {
         setLocalSeatsMap((prev) => {
@@ -142,15 +196,24 @@ export default function Home() {
           };
         });
 
-        // If the seat held by us was expired/released by the server, clear order
         if (selectedSeat?.id === updatedSeat.seatId && updatedSeat.status === 'AVAILABLE') {
           setSelectedSeat(null);
           setCurrentOrder(null);
           setPaymentStep(false);
+          addAlert('info', 'Your seat hold has expired');
         }
       }
     },
   });
+
+  // Helper function to add alerts
+  const addAlert = (type: 'success' | 'error' | 'info', message: string) => {
+    const id = Date.now().toString();
+    setAlerts((prev) => [...prev, { id, type, message }]);
+    setTimeout(() => {
+      setAlerts((prev) => prev.filter((a) => a.id !== id));
+    }, 5000);
+  };
 
   // Handle Auth submission
   const handleAuth = async (e: React.FormEvent) => {
@@ -161,16 +224,19 @@ export default function Home() {
     try {
       if (isRegister) {
         await registerMutate({ variables: { email, password } });
-        setAuthSuccess('Registration successful! Please login.');
+        addAlert('success', 'Registration successful! Please login.');
         setIsRegister(false);
+        setEmail('');
+        setPassword('');
       } else {
         const { data: res } = await loginMutate({ variables: { email, password } });
         if (res?.login) {
           login(res.login.token, res.login.user);
+          addAlert('success', `Welcome back, ${res.login.user.email}!`);
         }
       }
     } catch (err: any) {
-      setAuthError(err.message || 'Authentication failed');
+      addAlert('error', err.message || 'Authentication failed');
     }
   };
 
@@ -184,9 +250,10 @@ export default function Home() {
         setCurrentOrder(order);
         setSelectedSeat(localSeatsMap[seatId]);
         setPaymentStep(true);
+        addAlert('success', 'Seat held! Proceed to checkout.');
       }
     } catch (err: any) {
-      alert(err.message || 'Seat holding failed! Someone might have taken it.');
+      addAlert('error', err.message || 'Seat holding failed! Someone might have taken it.');
     }
   };
 
@@ -194,7 +261,7 @@ export default function Home() {
   const handleSimulatePayment = () => {
     setPaymentSuccess(true);
     setPaymentStep(false);
-    // In production a webhook or subscription on orders would push this update
+    addAlert('success', 'Payment processed successfully!');
   };
 
   const handleReset = () => {
@@ -202,405 +269,315 @@ export default function Home() {
     setCurrentOrder(null);
     setPaymentStep(false);
     setPaymentSuccess(false);
+    setSelectedPaymentMethod(null);
     refetch();
   };
 
-  // Auth screen
+  // ──────────────────────────────────────────────
+  // AUTH SCREEN — CONCERT POSTER VIBE, NOT CARD
+  // ──────────────────────────────────────────────
   if (!token) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-950 font-sans p-6">
-        <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-2xl">
-          <div className="flex flex-col items-center gap-2 mb-8">
-            <Ticket className="h-12 w-12 text-indigo-500 animate-pulse" />
-            <h1 className="text-2xl font-bold tracking-tight text-white">TicketRush Engine</h1>
-            <p className="text-zinc-400 text-sm">High-Throughput Seat Booking System</p>
+      <div className="relative min-h-screen min-h-[100dvh] bg-dark-bg overflow-hidden crt-scanlines">
+        {/* Massive background typography — poster style */}
+        <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none select-none">
+          <h1 className="font-display text-[clamp(6rem,20vw,16rem)] font-black tracking-tighter leading-none text-white/[0.03] whitespace-nowrap">
+            TICKET RUSH
+          </h1>
+        </div>
+
+        {/* Electric energy leaks — 3 flashing bars, asymmetrical */}
+        <div className="absolute top-[15%] left-0 w-[40%] h-[2px] bg-gradient-to-r from-transparent via-electric-blue to-transparent opacity-30 animate-pulse" style={{ animationDuration: '3s' }} />
+        <div className="absolute bottom-[25%] right-0 w-[55%] h-[1px] bg-gradient-to-r from-transparent via-hot-magenta to-transparent opacity-25 animate-pulse" style={{ animationDuration: '4s', animationDelay: '1s' }} />
+        <div className="absolute top-[60%] left-[10%] w-[30%] h-[1px] bg-gradient-to-r from-transparent via-lime-rush to-transparent opacity-20 animate-pulse" style={{ animationDuration: '2.5s', animationDelay: '0.5s' }} />
+
+        {/* Decorative floating elements — rave flyer chaos */}
+        <div className="absolute top-8 left-8 w-2 h-2 rounded-full bg-electric-blue animate-ping opacity-20" style={{ animationDuration: '2s' }} />
+        <div className="absolute bottom-12 right-12 w-3 h-3 rounded-full bg-hot-magenta animate-ping opacity-15" style={{ animationDuration: '3s', animationDelay: '1.5s' }} />
+
+        {/* Scanline glow streaks */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[200px] h-[600px] bg-gradient-to-b from-electric-blue/5 via-hot-magenta/[0.02] to-transparent blur-3xl -rotate-12 pointer-events-none" />
+        <div className="absolute top-3/4 -right-20 w-[300px] h-[300px] bg-gradient-to-b from-lime-rush/5 to-transparent blur-[100px] pointer-events-none" />
+
+        <div className="relative z-10 min-h-[100dvh] flex flex-col lg:flex-row items-stretch">
+          {/* LEFT — Poster typography (hidden on mobile, visible lg+) */}
+          <div className="hidden lg:flex lg:w-1/2 flex-col justify-center px-10 lg:px-16 py-12 select-none">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+            >
+              {/* Distorted/stacked text */}
+              <div className="relative mb-8">
+                <span className="block font-display text-[clamp(3.5rem,5.5vw,6rem)] font-black tracking-tighter leading-[0.85] bg-gradient-to-r from-electric-blue via-electric-cyan to-electric-blue bg-clip-text text-transparent">
+                  TICKET
+                </span>
+                <span className="block font-display text-[clamp(3.5rem,5.5vw,6rem)] font-black tracking-tighter leading-[0.85] bg-gradient-to-r from-hot-magenta via-hot-pink to-hot-magenta bg-clip-text text-transparent ml-[0.15em]">
+                  RUSH
+                </span>
+              </div>
+
+              {/* Zine-style meta line */}
+              <p className="font-mono text-xs text-zinc-600 uppercase tracking-[0.25em] mb-3">
+                EST. 2026 // NYC
+              </p>
+              <p className="font-mono text-[11px] text-zinc-700 leading-relaxed max-w-[40ch]">
+                REAL-TIME TICKETING. NO BROWSER QUEUES. NO BOTS. JUST YOU AND THE SHOW.
+              </p>
+            </motion.div>
           </div>
 
-          <form onSubmit={handleAuth} className="space-y-4">
-            <div>
-              <label className="block text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-2">Email Address</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500 transition-colors"
-                placeholder="you@example.com"
-              />
-            </div>
-            <div>
-              <label className="block text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-2">Password</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500 transition-colors"
-                placeholder="••••••••"
-              />
-            </div>
-
-            {authError && (
-              <div className="flex items-center gap-2 text-red-400 bg-red-950/30 border border-red-900/50 rounded-lg p-3 text-sm">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>{authError}</span>
-              </div>
-            )}
-
-            {authSuccess && (
-              <div className="flex items-center gap-2 text-green-400 bg-green-950/30 border border-green-900/50 rounded-lg p-3 text-sm">
-                <CheckCircle className="h-4 w-4 shrink-0" />
-                <span>{authSuccess}</span>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loginLoading || registerLoading}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-3 rounded-lg transition-colors cursor-pointer"
+          {/* RIGHT — Auth form */}
+          <div className="flex-1 flex items-center justify-center px-6 py-12 lg:pr-16">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full max-w-md"
             >
-              {isRegister ? 'Create Account' : 'Sign In'}
-            </button>
-          </form>
+              {/* Mobile mini-logo */}
+              <div className="lg:hidden mb-8 text-center">
+                <span className="font-display text-3xl font-black tracking-tighter bg-gradient-to-r from-electric-blue via-hot-magenta to-lime-rush bg-clip-text text-transparent">
+                  TICKET RUSH
+                </span>
+              </div>
 
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => {
-                setIsRegister(!isRegister);
-                setAuthError('');
-                setAuthSuccess('');
-              }}
-              className="text-xs text-indigo-400 hover:text-indigo-300 font-medium"
-            >
-              {isRegister ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
-            </button>
+              {/* Form card — offset, asymmetrical border treatment */}
+              <div className="relative">
+                {/* Top-left accent corner */}
+                <div className="absolute -top-3 -left-3 w-8 h-8 border-l-2 border-t-2 border-electric-blue/40" />
+
+                <div className="bg-dark-surface/70 backdrop-blur-xl border border-zinc-800/80 rounded-xl p-8">
+                  <form onSubmit={handleAuth} className="space-y-5">
+                    {/* Mini eyebrow (the ONLY one on this screen) */}
+                    <p className="font-mono text-[10px] text-zinc-600 uppercase tracking-[0.2em] mb-6">
+                      {isRegister ? 'CREATE ACCOUNT' : 'SIGN IN'}
+                    </p>
+
+                    <div>
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full bg-dark-bg/80 border border-zinc-800 rounded-lg px-4 py-3.5 text-white text-sm placeholder-zinc-700 focus:outline-none focus:border-electric-blue/50 focus:ring-1 focus:ring-electric-blue/20 transition-all"
+                        placeholder="EMAIL"
+                      />
+                    </div>
+
+                    <div>
+                      <input
+                        type="password"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full bg-dark-bg/80 border border-zinc-800 rounded-lg px-4 py-3.5 text-white text-sm placeholder-zinc-700 focus:outline-none focus:border-hot-magenta/50 focus:ring-1 focus:ring-hot-magenta/20 transition-all"
+                        placeholder="PASSWORD"
+                      />
+                    </div>
+
+                    {authError && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex items-center gap-2 text-red-400 bg-red-950/30 border border-red-900/40 rounded-lg px-3.5 py-2.5 text-xs"
+                      >
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{authError}</span>
+                      </motion.div>
+                    )}
+
+                    {authSuccess && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex items-center gap-2 text-lime-rush bg-lime-rush/5 border border-lime-rush/20 rounded-lg px-3.5 py-2.5 text-xs"
+                      >
+                        <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{authSuccess}</span>
+                      </motion.div>
+                    )}
+
+                    <motion.button
+                      type="submit"
+                      disabled={loginLoading || registerLoading}
+                      className="w-full py-3.5 rounded-lg bg-gradient-to-r from-electric-blue to-electric-cyan text-dark-bg font-bold text-sm tracking-wider uppercase disabled:opacity-40 transition-all"
+                      whileHover={{ scale: 1.02, boxShadow: '0 0 30px rgba(0,212,255,0.3)' }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      {loginLoading || registerLoading ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          {isRegister ? 'CREATING...' : 'ENTERING...'}
+                        </span>
+                      ) : (
+                        isRegister ? 'CREATE ACCOUNT' : 'ENTER'
+                      )}
+                    </motion.button>
+                  </form>
+
+                  {/* Toggle */}
+                  <div className="mt-6 text-center">
+                    <button
+                      onClick={() => {
+                        setIsRegister(!isRegister);
+                        setAuthError('');
+                        setAuthSuccess('');
+                      }}
+                      className="font-mono text-[11px] text-zinc-600 hover:text-electric-blue uppercase tracking-[0.15em] transition-colors"
+                    >
+                      {isRegister
+                        ? 'ALREADY IN? SIGN IN →'
+                        : 'FIRST TIME? JOIN →'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Bottom-right accent corner */}
+                <div className="absolute -bottom-3 -right-3 w-8 h-8 border-r-2 border-b-2 border-hot-magenta/40" />
+              </div>
+
+              {/* Footer text — raw zine style */}
+              <p className="mt-8 text-center font-mono text-[10px] text-zinc-800 uppercase tracking-[0.2em]">
+                F*CK THE QUEUE. GET THE SEAT.
+              </p>
+            </motion.div>
           </div>
         </div>
+
+        {/* Alerts */}
+        <AlertManager alerts={alerts} onDismiss={(id) => setAlerts((a) => a.filter((x) => x.id !== id))} />
       </div>
     );
   }
 
+  // ──────────────────────────────────────────────
+  // MAIN AUTHENTICATED VIEW
+  // ──────────────────────────────────────────────
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100 font-sans">
-      {/* Top Navbar */}
-      <header className="border-b border-zinc-900 bg-zinc-900/40 backdrop-blur px-6 py-4 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <Ticket className="h-6 w-6 text-indigo-500" />
-          <span className="font-bold tracking-tight text-white text-lg">TicketRush</span>
-        </div>
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 text-sm text-zinc-400">
-            <UserIcon className="h-4 w-4" />
-            <span>{user?.email}</span>
-          </div>
-          <button
-            onClick={logout}
-            className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors"
+    <div className="min-h-screen bg-dark-bg text-zinc-100 crt-scanlines">
+      {/* Navigation */}
+      <Navigation
+        userEmail={user?.email}
+        onLogout={logout}
+        onNavigate={(section) => console.log('Navigate to:', section)}
+      />
+
+      {/* Hero Section */}
+      <HeroSection
+        events={MOCK_EVENTS}
+        onEventSelect={(eventId) => addAlert('info', `Selected event: ${eventId}`)}
+      />
+
+      {/* Event Carousel */}
+      <EventCarousel
+        events={MOCK_EVENTS}
+        onEventSelect={(eventId) => addAlert('info', `Viewing event: ${eventId}`)}
+      />
+
+      {/* Main Content - Seat Booking & Checkout */}
+      <motion.div
+        className="max-w-7xl mx-auto px-6 py-20"
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        transition={{ duration: 0.6 }}
+        viewport={{ once: true }}
+      >
+        {!paymentSuccess && !paymentStep && (
+          <EventDetail
+            eventTitle={data?.getConcertDetail?.title || 'Live Concert'}
+            venue={data?.getConcertDetail?.venue}
+            date={data?.getConcertDetail?.startTime}
+            seats={Object.values(localSeatsMap)}
+            selectedSeat={selectedSeat}
+            currentUserId={user?.id}
+            onSeatSelect={handleHoldSeat}
+            onSeatUnselect={() => setSelectedSeat(null)}
+          />
+        )}
+
+        {paymentStep && selectedSeat && (
+          <CheckoutFlow
+            selectedSeat={selectedSeat}
+            orderTotal={selectedSeat.price}
+            onPaymentMethodSelect={setSelectedPaymentMethod}
+            onConfirmPayment={handleSimulatePayment}
+            isLoading={false}
+            paymentSuccess={paymentSuccess}
+          />
+        )}
+
+        {paymentSuccess && (
+          <motion.div
+            className="text-center"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
           >
-            <LogOut className="h-4 w-4" />
-            <span>Log out</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Left/Middle: SVG Seat Map */}
-        <section className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col min-h-[500px]">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-xl font-bold text-white">{data?.getConcertDetail?.title || 'Concert Seat Booking'}</h2>
-              <p className="text-zinc-400 text-xs mt-1">{data?.getConcertDetail?.venue} • Live Status</p>
-            </div>
-            <button
-              onClick={() => refetch()}
-              className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </button>
-          </div>
-
-          {concertLoading ? (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-800 border-t-indigo-500"></div>
-            </div>
-          ) : (
-            <div className="flex-grow flex items-center justify-center border border-zinc-800/40 rounded-xl bg-zinc-950/50 p-6">
-              {/* Interactive SVG Seat Map */}
-              <div className="w-full max-w-lg">
-                <div className="w-full text-center py-2 bg-zinc-800 text-zinc-400 font-bold text-xs uppercase tracking-widest rounded-lg mb-12 shadow-inner">
-                  STAGE
-                </div>
-                
-                <svg viewBox="0 0 500 300" className="w-full h-auto">
-                  {/* VIP Zone (Row 1-2) */}
-                  <g>
-                    {/* VIP A */}
-                    {Object.values(localSeatsMap)
-                      .filter((s: any) => s.zoneName === 'VIP A')
-                      .map((seat: any, index: number) => {
-                        const x = 70 + index * 80;
-                        const y = 80;
-                        const isHeld = seat.status === 'HELD';
-                        const isSold = seat.status === 'SOLD';
-                        const isMe = isHeld && seat.heldByUserId === user?.id;
-                        
-                        let fill = '#06b6d4'; // Cyan for VIP AVAILABLE
-                        if (isSold) fill = '#3f3f46'; // Zinc 700 for SOLD
-                        else if (isHeld) fill = isMe ? '#6366f1' : '#f97316'; // Indigo for US, Orange for OTHER HOLD
-
-                        return (
-                          <g key={seat.id}>
-                            <rect
-                              x={x}
-                              y={y}
-                              width="50"
-                              height="40"
-                              rx="6"
-                              fill={fill}
-                              className={`cursor-pointer transition-all duration-300 ${!isSold && !isHeld ? 'hover:scale-105 active:scale-95' : ''}`}
-                              onClick={() => !isSold && !isHeld && handleHoldSeat(seat.id)}
-                            />
-                            <text
-                              x={x + 25}
-                              y={y + 24}
-                              fill="#fff"
-                              fontSize="10"
-                              fontWeight="bold"
-                              textAnchor="middle"
-                              className="pointer-events-none select-none"
-                            >
-                              {seat.seatNumber}
-                            </text>
-                          </g>
-                        );
-                      })}
-                  </g>
-
-                  {/* Standard Zone (Row 3-4) */}
-                  <g>
-                    {Object.values(localSeatsMap)
-                      .filter((s: any) => s.zoneName === 'Standard')
-                      .map((seat: any, index: number) => {
-                        const cols = 5;
-                        const col = index % cols;
-                        const row = Math.floor(index / cols);
-                        const x = 60 + col * 85;
-                        const y = 160 + row * 60;
-                        const isHeld = seat.status === 'HELD';
-                        const isSold = seat.status === 'SOLD';
-                        const isMe = isHeld && seat.heldByUserId === user?.id;
-
-                        let fill = '#10b981'; // Green for Standard AVAILABLE
-                        if (isSold) fill = '#3f3f46';
-                        else if (isHeld) fill = isMe ? '#6366f1' : '#f97316';
-
-                        return (
-                          <g key={seat.id}>
-                            <rect
-                              x={x}
-                              y={y}
-                              width="55"
-                              height="40"
-                              rx="6"
-                              fill={fill}
-                              className={`cursor-pointer transition-all duration-300 ${!isSold && !isHeld ? 'hover:scale-105 active:scale-95' : ''}`}
-                              onClick={() => !isSold && !isHeld && handleHoldSeat(seat.id)}
-                            />
-                            <text
-                              x={x + 27}
-                              y={y + 24}
-                              fill="#fff"
-                              fontSize="10"
-                              fontWeight="bold"
-                              textAnchor="middle"
-                              className="pointer-events-none select-none"
-                            >
-                              {seat.seatNumber}
-                            </text>
-                          </g>
-                        );
-                      })}
-                  </g>
-                </svg>
-
-                {/* Legend */}
-                <div className="flex flex-wrap items-center justify-center gap-6 mt-12 pt-6 border-t border-zinc-900 text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="h-3.5 w-3.5 bg-cyan-500 rounded"></div>
-                    <span className="text-zinc-400">VIP Available ($250)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-3.5 w-3.5 bg-emerald-500 rounded"></div>
-                    <span className="text-zinc-400">Standard Available ($100)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-3.5 w-3.5 bg-orange-500 rounded animate-pulse"></div>
-                    <span className="text-zinc-400">Held by others</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-3.5 w-3.5 bg-indigo-500 rounded"></div>
-                    <span className="text-zinc-400">Your selection</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-3.5 w-3.5 bg-zinc-700 rounded"></div>
-                    <span className="text-zinc-400">Sold</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* Right Panel: Booking State & Payment */}
-        <section className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col">
-          <h3 className="text-lg font-bold text-white mb-6 pb-4 border-b border-zinc-800">Reservation Details</h3>
-
-          {!selectedSeat && !paymentSuccess && (
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-zinc-500">
-              <Ticket className="h-12 w-12 mb-4 text-zinc-700" />
-              <p className="font-semibold text-zinc-400">No seat selected</p>
-              <p className="text-xs text-zinc-500 mt-2">Select an available seat from the interactive map to begin holding and payment reservation.</p>
-            </div>
-          )}
-
-          {/* Payment step flow */}
-          {paymentStep && selectedSeat && currentOrder && (
-            <div className="flex-grow flex flex-col gap-6">
-              <div className="bg-zinc-950 rounded-xl p-4 border border-zinc-800">
-                <span className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Held Seat</span>
-                <h4 className="text-xl font-bold text-white mt-1">{selectedSeat.seatNumber} ({selectedSeat.zoneName})</h4>
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-zinc-900">
-                  <span className="text-zinc-400 text-sm">Ticket Price</span>
-                  <span className="text-white font-bold">${selectedSeat.price}</span>
-                </div>
-              </div>
-
-              {/* Countdown Timer simulation */}
-              <div className="bg-orange-500/10 border border-orange-500/30 text-orange-400 rounded-xl p-4 flex items-center gap-3">
-                <Clock className="h-5 w-5 animate-spin" style={{ animationDuration: '6s' }} />
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider">Holding Expiration</p>
-                  <p className="text-sm mt-0.5">Expires in 10 minutes (RabbitMQ tracking)</p>
-                </div>
-              </div>
-
-              <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-6 text-center flex flex-col items-center gap-4">
-                <p className="text-sm text-zinc-400">Scan QR Code below or click simulated pay button to settle payment</p>
-                
-                {/* Visual Fake QR Code */}
-                <div className="h-44 w-44 bg-white p-2 rounded-xl border border-zinc-800 flex items-center justify-center">
-                  <svg className="h-full w-full" viewBox="0 0 100 100">
-                    <rect width="100" height="100" fill="white" />
-                    {/* Mock QR dots */}
-                    <rect x="10" y="10" width="20" height="20" fill="black" />
-                    <rect x="15" y="15" width="10" height="10" fill="white" />
-                    <rect x="70" y="10" width="20" height="20" fill="black" />
-                    <rect x="75" y="15" width="10" height="10" fill="white" />
-                    <rect x="10" y="70" width="20" height="20" fill="black" />
-                    <rect x="15" y="75" width="10" height="10" fill="white" />
-                    <rect x="40" y="40" width="20" height="20" fill="black" />
-                    <rect x="45" y="45" width="10" height="10" fill="white" />
-                    <rect x="50" y="70" width="10" height="10" fill="black" />
-                    <rect x="70" y="50" width="10" height="10" fill="black" />
-                  </svg>
-                </div>
-
-                <div className="flex gap-3 w-full">
-                  <button
-                    onClick={handleReset}
-                    className="flex-grow bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold py-3 rounded-lg transition-colors cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSimulatePayment}
-                    className="flex-grow bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg transition-colors cursor-pointer"
-                  >
-                    Confirm Payment
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Payment Success state */}
-          {paymentSuccess && selectedSeat && (
-            <div className="flex-grow flex flex-col gap-6 text-center">
-              <div className="flex flex-col items-center justify-center gap-2 py-6">
-                <div className="h-16 w-16 bg-green-500/10 border border-green-500/30 text-green-400 rounded-full flex items-center justify-center mb-4">
-                  <CheckCircle className="h-8 w-8" />
-                </div>
-                <h4 className="text-xl font-bold text-white">Payment Confirmed!</h4>
-                <p className="text-zinc-400 text-sm">Your seat reservation is now secured.</p>
-              </div>
-
-              {/* Generate Virtual Ticket */}
-              <div className="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden relative shadow-2xl">
-                {/* Ticket header */}
-                <div className="bg-indigo-600 px-6 py-4 text-left">
-                  <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">TICKETPASS</span>
-                  <h5 className="text-lg font-bold text-white truncate">{data?.getConcertDetail?.title}</h5>
-                </div>
-                
-                {/* Ticket body */}
-                <div className="p-6 text-left space-y-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-zinc-500 text-xs">Seat Number</span>
-                      <p className="font-bold text-white mt-0.5">{selectedSeat.seatNumber}</p>
-                    </div>
-                    <div>
-                      <span className="text-zinc-500 text-xs">Zone</span>
-                      <p className="font-bold text-white mt-0.5">{selectedSeat.zoneName}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-zinc-500 text-xs">Venue</span>
-                    <p className="font-semibold text-zinc-300 mt-0.5">{data?.getConcertDetail?.venue}</p>
-                  </div>
-                </div>
-
-                {/* Ticket divider */}
-                <div className="border-t-2 border-dashed border-zinc-800 relative mx-6 my-2">
-                  <div className="absolute -left-[30px] -top-[10px] h-5 w-5 bg-zinc-900 rounded-full border-r border-zinc-800"></div>
-                  <div className="absolute -right-[30px] -top-[10px] h-5 w-5 bg-zinc-900 rounded-full border-l border-zinc-800"></div>
-                </div>
-
-                {/* Ticket QR scan */}
-                <div className="p-6 flex flex-col items-center gap-4 bg-zinc-950/60">
-                  <div className="h-32 w-32 bg-white p-2 rounded-lg">
-                    <svg className="h-full w-full" viewBox="0 0 100 100">
-                      <rect width="100" height="100" fill="white" />
-                      {/* Unique Ticket QR dots representation */}
-                      <rect x="10" y="10" width="20" height="20" fill="black" />
-                      <rect x="15" y="15" width="10" height="10" fill="white" />
-                      <rect x="70" y="10" width="20" height="20" fill="black" />
-                      <rect x="75" y="15" width="10" height="10" fill="white" />
-                      <rect x="10" y="70" width="20" height="20" fill="black" />
-                      <rect x="15" y="75" width="10" height="10" fill="white" />
-                      {/* Ticket unique code pattern */}
-                      <rect x="40" y="40" width="15" height="15" fill="black" />
-                      <rect x="55" y="55" width="15" height="15" fill="black" />
-                      <rect x="70" y="70" width="10" height="10" fill="black" />
-                    </svg>
-                  </div>
-                  <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">{currentOrder?.id?.slice(0, 18)}...</span>
-                </div>
-              </div>
-
+            <div className="mb-8">
               <button
                 onClick={handleReset}
-                className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-semibold py-3 rounded-lg transition-colors cursor-pointer"
+                className="px-8 py-3 bg-lime-rush text-dark-bg font-bold rounded-lg hover:shadow-glow-lime transition-all"
               >
-                Book another ticket
+                Book Another Ticket
               </button>
             </div>
-          )}
-        </section>
+          </motion.div>
+        )}
+      </motion.div>
 
-      </main>
+      {/* ────────────────────────────────────────── */}
+      {/* FOOTER — RAW, AGGRESSIVE, NOT GENERIC       */}
+      {/* ────────────────────────────────────────── */}
+      <footer className="relative border-t border-zinc-800/60 mt-20 py-16 overflow-hidden">
+        {/* Background flare */}
+        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[400px] h-[200px] bg-gradient-to-b from-electric-blue/5 to-transparent blur-[80px] pointer-events-none" />
+
+        <div className="relative max-w-7xl mx-auto px-6">
+          {/* Row 1: bold statement */}
+          <div className="mb-10">
+            <h3 className="font-display text-4xl sm:text-5xl font-black tracking-tighter leading-[0.9]">
+              <span className="bg-gradient-to-r from-electric-blue via-hot-magenta to-lime-rush bg-clip-text text-transparent">
+                SEE YOU IN THE PIT
+              </span>
+            </h3>
+          </div>
+
+          {/* Row 2: links + boaster */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-8">
+            <div className="flex flex-wrap gap-x-8 gap-y-2">
+              <a href="#" className="text-zinc-600 hover:text-electric-blue text-sm font-mono uppercase tracking-wider transition-colors">
+                Instagram
+              </a>
+              <a href="#" className="text-zinc-600 hover:text-hot-magenta text-sm font-mono uppercase tracking-wider transition-colors">
+                Twitter / X
+              </a>
+              <a href="#" className="text-zinc-600 hover:text-lime-rush text-sm font-mono uppercase tracking-wider transition-colors">
+                Discord
+              </a>
+              <a href="#" className="text-zinc-600 hover:text-zinc-400 text-sm font-mono uppercase tracking-wider transition-colors">
+                Privacy
+              </a>
+              <a href="#" className="text-zinc-600 hover:text-zinc-400 text-sm font-mono uppercase tracking-wider transition-colors">
+                Terms
+              </a>
+            </div>
+
+            <p className="font-mono text-[10px] text-zinc-800 uppercase tracking-[0.2em] whitespace-nowrap">
+              NO SERVICE FEES. NO BOTS. JUST NOISE.
+            </p>
+          </div>
+
+          {/* Row 3: bottom bar */}
+          <div className="mt-10 pt-6 border-t border-zinc-800/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <p className="font-mono text-[10px] text-zinc-800">
+              TICKETRUSH // 2026
+            </p>
+            <p className="font-mono text-[10px] text-zinc-800">
+              BUILT WITH SPRING BOOT + NEXT.JS + CAFFEINE
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

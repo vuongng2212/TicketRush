@@ -136,11 +136,6 @@
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
         <!-- Annotation compatibility for Java 9+ generated gRPC stub -->
         <dependency>
             <groupId>javax.annotation</groupId>
@@ -222,30 +217,6 @@
                                 </path>
                             </annotationProcessorPaths>
                         </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.jacoco</groupId>
-                <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.11</version>
-                <configuration>
-                    <excludes>
-                        <!-- Exclude gRPC generated classes -->
-                        <exclude>com/ticketrush/server/grpc/CheckInRequest*</exclude>
-                        <exclude>com/ticketrush/server/grpc/CheckInResponse*</exclude>
-                        <exclude>com/ticketrush/server/grpc/TicketServiceGrpc*</exclude>
-                        <!-- protobuf-generated Ticket message class -->
-                        <exclude>com/ticketrush/server/grpc/Ticket.class</exclude>
-                        <exclude>com/ticketrush/server/grpc/TicketOrBuilder.class</exclude>
-                    </excludes>
-                </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>prepare-agent</goal>
-                            <goal>report</goal>
-                        </goals>
                     </execution>
                 </executions>
             </plugin>
