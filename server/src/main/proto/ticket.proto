@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package ticket;
+
+option java_multiple_files = true;
+option java_package = "com.ticketrush.server.grpc";
+
+service TicketService {
+    rpc CheckInTicket (CheckInRequest) returns (CheckInResponse);
+}
+
+message CheckInRequest {
+    string ticketToken = 1;
+    string adminSecret = 2;
+}
+
+message CheckInResponse {
+    enum Status {
+        UNKNOWN = 0;
+        SUCCESS = 1;
+        ALREADY_CHECKED_IN = 2;
+        INVALID_TICKET = 3;
+        UNAUTHORIZED = 4;
+    }
+    Status status = 1;
+    string ticketId = 2;
+    string concertTitle = 3;
+    string seatNumber = 4;
+    string attendeeName = 5;
+    string checkedInAt = 6;
+}
