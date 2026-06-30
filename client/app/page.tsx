@@ -1,21 +1,78 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { gql } from '@apollo/client';
 import { useQuery, useMutation, useSubscription } from '@apollo/client/react';
 import { useAuth } from './context/AuthContext';
-import { LogOut, User as UserIcon, Ticket, RefreshCw, AlertCircle, CheckCircle, Clock } from 'lucide-react';
-import { motion } from 'framer-motion'; // legacy import — keep for existing usage
+import { Ticket, RefreshCw, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { motion } from 'framer-motion';
 import {
-  HeroSection,
   EventDetail,
   CheckoutFlow,
-  EventCarousel,
   Navigation,
   AlertManager,
 } from './components';
+import { EventCarousel } from '@/components/EventCarousel';
+import { HeroSection } from '@/components/HeroSection';
+import { Navbar } from '@/components/Navbar';
+import { MobileMenu } from '@/components/MobileMenu';
+import { NeonPulseButton } from '@/components/NeonPulseButton';
+import { ElectricInput } from '@/components/ElectricInput';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
+import ELECTRIC_RUSH, { GRADIENTS } from '@/lib/design-tokens';
+
+// Type definitions
+interface Seat {
+  id: string;
+  seatNumber: string;
+  status: string;
+  heldByUserId?: string;
+  heldUntil?: string;
+  zoneName?: string;
+  price?: number;
+}
+
+interface Zone {
+  id: string;
+  name: string;
+  price: number;
+  totalSeats: number;
+  seats: Seat[];
+}
+
+interface Concert {
+  id: string;
+  title: string;
+  description?: string;
+  venue?: string;
+  startTime?: string;
+  imageUrl?: string;
+  ticketsSold?: number;
+  totalTickets?: number;
+  status?: string;
+  zones?: Zone[];
+}
+
+interface ConcertDetail {
+  getConcertDetail?: Concert;
+}
+
+interface GraphQLData {
+  [key: string]: unknown;
+}
 
 // GraphQL Queries & Mutations
+
+// Simple hash function for deterministic pseudo-random values (avoids Math.random in render)
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash) / 2147483647;
+}
 const GET_CONCERT_DETAIL = gql`
   query GetConcertDetail($concertId: ID!) {
     getConcertDetail(concertId: $concertId) {
@@ -85,55 +142,179 @@ const LOGIN = gql`
   }
 `;
 
+// Get list of concerts (replaces MOCK_EVENTS)
+const GET_CONCERTS = gql`
+  query GetConcerts($status: String, $limit: Int) {
+    getConcerts(status: $status, limit: $limit) {
+      id
+      title
+      description
+      venue
+      startTime
+      status
+      availableSeats
+      minPrice
+      maxPrice
+      zoneCount
+      imageUrl
+    }
+    getFeaturedConcerts(limit: 8) {
+      id
+      title
+      description
+      venue
+      startTime
+      status
+      availableSeats
+      minPrice
+      maxPrice
+      zoneCount
+      imageUrl
+    }
+  }
+`;
+
+// Real payment mutation (replaces handleSimulatePayment fake)
+const CONFIRM_PAYMENT = gql`
+  mutation ConfirmPayment($orderId: ID!, $paymentMethod: PaymentMethod!) {
+    confirmPayment(orderId: $orderId, paymentMethod: $paymentMethod) {
+      order {
+        id
+        status
+        totalPrice
+        expiresAt
+      }
+      ticket {
+        id
+        ticketCode
+      }
+      paymentReference
+      paymentMethod
+      paidAt
+      totalPrice
+    }
+  }
+`;
+
+// Cancel order mutation
+const CANCEL_ORDER = gql`
+  mutation CancelOrder($orderId: ID!) {
+    cancelOrder(orderId: $orderId) {
+      id
+      status
+    }
+  }
+`;
+
 // Mock Concert ID for testing
-const MOCK_CONCERT_ID = "00000000-0000-0000-0000-000000000000";
+// Must match seeded DB concert UUID: 00000000-0000-0000-0000-000000000001
+const MOCK_CONCERT_ID = "00000000-0000-0000-0000-000000000001";
 
 // Mock Events Data
 const MOCK_EVENTS = [
   {
-    id: '1',
-    title: 'Electric Nights Festival',
-    artist: 'The Midnight Collective',
-    venue: 'Madison Square Garden',
-    date: 'July 15, 2026',
-    price: 89,
-    rating: 4.8,
-    image: 'https://picsum.photos/seed/electric-nights/800/600',
-  },
-  {
-    id: '2',
-    title: 'Summer Vibes',
-    artist: 'Luna Echo',
-    venue: 'Central Park Amphitheater',
-    date: 'July 22, 2026',
-    price: 65,
-    rating: 4.5,
-    image: 'https://picsum.photos/seed/summer-vibes/800/600',
-  },
-  {
-    id: '3',
-    title: 'Neon Nights',
-    artist: 'Synthwave Dreams',
-    venue: 'Barclays Center',
-    date: 'August 5, 2026',
-    price: 120,
+    id: 'evt-001',
+    title: 'BlackPink World Tour',
+    venue: 'My Dinh National Stadium',
+    date: '2026-08-15',
+    price: 2500000,
     rating: 4.9,
-    image: 'https://picsum.photos/seed/neon-nights/800/600',
+    reviewsCount: 3847,
+    ticketsAvailable: 42,
+    imageUrl: 'https://picsum.photos/seed/blackpink/800/600',
+    category: 'concert' as const,
   },
   {
-    id: '4',
-    title: 'Bass & Beats',
-    artist: 'DJ Cipher',
-    venue: 'Brooklyn Warehouse',
-    date: 'August 10, 2026',
-    price: 45,
+    id: 'evt-002',
+    title: 'Ho Tram Music Festival',
+    venue: 'Ho Tram Beach',
+    date: '2026-07-20',
+    price: 1800000,
+    rating: 4.7,
+    reviewsCount: 2156,
+    ticketsAvailable: 156,
+    imageUrl: 'https://picsum.photos/seed/festival/800/600',
+    category: 'festival' as const,
+  },
+  {
+    id: 'evt-003',
+    title: 'Hoai Linh Comedy Show',
+    venue: 'Saigon Opera House',
+    date: '2026-07-05',
+    price: 800000,
+    rating: 4.8,
+    reviewsCount: 1523,
+    ticketsAvailable: 234,
+    imageUrl: 'https://picsum.photos/seed/comedy/800/600',
+    category: 'comedy' as const,
+  },
+  {
+    id: 'evt-004',
+    title: 'Son Tung M-TP Sky Tour',
+    venue: 'Hanoi Indoor Games Gymnasium',
+    date: '2026-08-28',
+    price: 3200000,
+    rating: 4.9,
+    reviewsCount: 5682,
+    ticketsAvailable: 18,
+    imageUrl: 'https://picsum.photos/seed/sontung/800/600',
+    category: 'concert' as const,
+  },
+  {
+    id: 'evt-005',
+    title: 'Vietnam vs Thailand',
+    venue: 'Thong Nhat Stadium',
+    date: '2026-09-12',
+    price: 500000,
     rating: 4.6,
-    image: 'https://picsum.photos/seed/bass-beats/800/600',
+    reviewsCount: 892,
+    ticketsAvailable: 450,
+    imageUrl: 'https://picsum.photos/seed/football/800/600',
+    category: 'sports' as const,
+  },
+  {
+    id: 'evt-006',
+    title: 'Monsoon Music Festival',
+    venue: 'Hanoi Opera House',
+    date: '2026-10-03',
+    price: 1500000,
+    rating: 4.8,
+    reviewsCount: 2341,
+    ticketsAvailable: 89,
+    imageUrl: 'https://picsum.photos/seed/monsoon/800/600',
+    category: 'festival' as const,
+  },
+  {
+    id: 'evt-007',
+    title: 'Den Vau Live in Saigon',
+    venue: 'The Reverie Saigon',
+    date: '2026-07-18',
+    price: 1200000,
+    rating: 4.7,
+    reviewsCount: 1678,
+    ticketsAvailable: 112,
+    imageUrl: 'https://picsum.photos/seed/denvau/800/600',
+    category: 'concert' as const,
+  },
+  {
+    id: 'evt-008',
+    title: 'Hoa Minzy Solo Concert',
+    venue: 'Phu Tho Stadium',
+    date: '2026-09-25',
+    price: 950000,
+    rating: 4.5,
+    reviewsCount: 987,
+    ticketsAvailable: 276,
+    imageUrl: 'https://picsum.photos/seed/hoaminzy/800/600',
+    category: 'concert' as const,
   },
 ];
 
 export default function Home() {
   const { token, user, login, logout } = useAuth();
+
+  // Mobile menu state
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Auth Form State
   const [isRegister, setIsRegister] = useState(false);
@@ -143,336 +324,315 @@ export default function Home() {
   const [authSuccess, setAuthSuccess] = useState('');
 
   // Selected seat state
-  const [selectedSeat, setSelectedSeat] = useState<any>(null);
-  const [localSeatsMap, setLocalSeatsMap] = useState<Record<string, any>>({});
-  const [currentOrder, setCurrentOrder] = useState<any>(null);
+  const [selectedSeat, setSelectedSeat] = useState<Seat | null>(null);
+  const [localSeatsMap, setLocalSeatsMap] = useState<Record<string, Seat>>({});
+  const [currentZoneId, setCurrentZoneId] = useState<string | null>(null);
+
+  // Payment flow state
   const [paymentStep, setPaymentStep] = useState(false);
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+
+  // Alerts (in-app notifications)
   const [alerts, setAlerts] = useState<Array<{ id: string; type: 'success' | 'error' | 'info'; message: string }>>([]);
 
-  // Mutations
-  const [registerMutate, { loading: registerLoading }] = useMutation(REGISTER);
-  const [loginMutate, { loading: loginLoading }] = useMutation(LOGIN);
-  const [holdSeatMutate, { loading: holdLoading }] = useMutation(HOLD_SEAT);
-
-  // Fetch Concert data
-  const { data, loading: concertLoading, error: concertError, refetch } = useQuery(GET_CONCERT_DETAIL, {
+  // GraphQL operations
+  const { data, loading, error, refetch } = useQuery(GET_CONCERT_DETAIL, {
     variables: { concertId: MOCK_CONCERT_ID },
     skip: !token,
   });
 
-  // Keep local seat map synchronized with query updates
+  // Fetch list of concerts for the carousel (replaces MOCK_EVENTS)
+  const { data: concertsData, loading: concertsLoading } = useQuery(GET_CONCERTS, {
+    variables: { limit: 8 },
+    skip: !token,
+  });
+
+  // Transform ConcertSummary → EventCard event format
+  const liveEvents = useMemo(() => {
+    const concerts = (concertsData as GraphQLData)?.getFeaturedConcerts || [];
+    return concerts.map((c: Concert) => ({
+      id: c.id,
+      title: c.title,
+      venue: c.venue,
+      date: c.startTime,
+      price: c.minPrice,
+      rating: 4.5 + hashString(c.id) * 0.5, // Simulated — not in ConcertSummary yet
+      reviewsCount: Math.floor(500 + hashString(c.id + 'reviews') * 5000), // Simulated
+      ticketsAvailable: c.availableSeats,
+      imageUrl: c.imageUrl || `https://picsum.photos/seed/${c.id}/800/600`,
+      category: 'concert' as const,
+    }));
+  }, [concertsData]);
+
+  const [holdSeatMutation, { loading: holdingLoading }] = useMutation(HOLD_SEAT);
+  const [registerMutation, { loading: registerLoading }] = useMutation(REGISTER);
+  const [loginMutation, { loading: loginLoading }] = useMutation(LOGIN);
+  const [confirmPaymentMutation, { loading: paymentLoading }] = useMutation(CONFIRM_PAYMENT);
+  const [cancelOrderMutation] = useMutation(CANCEL_ORDER);
+
+  const { data: subscriptionData } = useSubscription(SEAT_STATUS_UPDATED, {
+    variables: { concertId: MOCK_CONCERT_ID },
+    skip: !token,
+  });
+
+  // Initialize local seats map from GraphQL data
   useEffect(() => {
-    const concert = (data as any)?.getConcertDetail;
-    if (concert?.zones) {
-      const map: Record<string, any> = {};
-      concert.zones.forEach((zone: any) => {
-        zone.seats.forEach((seat: any) => {
-          map[seat.id] = { ...seat, zoneName: zone.name, price: zone.price };
+    const detail = (data as GraphQLData)?.getConcertDetail;
+    if (detail?.zones) {
+      const seatsMap: Record<string, Seat> = {};
+      detail.zones.forEach((zone: Zone) => {
+        zone.seats.forEach((seat: Seat) => {
+          seatsMap[seat.id] = { ...seat, zoneId: zone.id, zoneName: zone.name, price: zone.price };
         });
       });
-      setLocalSeatsMap(map);
+      setLocalSeatsMap(seatsMap);
     }
   }, [data]);
 
-  // Subscription for Real-time Seat updates
-  useSubscription(SEAT_STATUS_UPDATED, {
-    variables: { concertId: MOCK_CONCERT_ID },
-    skip: !token,
-    onData: ({ data: subData }) => {
-      const updatedSeat = (subData?.data as any)?.seatStatusUpdated;
-      if (updatedSeat) {
-        setLocalSeatsMap((prev) => {
-          const existing = prev[updatedSeat.seatId];
-          if (!existing) return prev;
-          return {
-            ...prev,
-            [updatedSeat.seatId]: {
-              ...existing,
-              status: updatedSeat.status,
-              heldByUserId: updatedSeat.heldByUserId,
-            },
-          };
-        });
+  // Handle real-time seat updates
+  useEffect(() => {
+    const update = (subscriptionData as GraphQLData)?.seatStatusUpdated;
+    if (update) {
+      setLocalSeatsMap((prev) => ({
+        ...prev,
+        [update.seatId]: { ...prev[update.seatId], status: update.status, heldByUserId: update.heldByUserId },
+      }));
+    }
+  }, [subscriptionData]);
 
-        if (selectedSeat?.id === updatedSeat.seatId && updatedSeat.status === 'AVAILABLE') {
-          setSelectedSeat(null);
-          setCurrentOrder(null);
-          setPaymentStep(false);
-          addAlert('info', 'Your seat hold has expired');
-        }
-      }
-    },
-  });
-
-  // Helper function to add alerts
+  // Alert management
   const addAlert = (type: 'success' | 'error' | 'info', message: string) => {
-    const id = Date.now().toString();
+    const id = Math.random().toString(36);
     setAlerts((prev) => [...prev, { id, type, message }]);
     setTimeout(() => {
       setAlerts((prev) => prev.filter((a) => a.id !== id));
-    }, 5000);
+    }, 4000);
   };
 
-  // Handle Auth submission
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Auth handlers
+  const handleAuth = async () => {
     setAuthError('');
     setAuthSuccess('');
 
     try {
       if (isRegister) {
-        await registerMutate({ variables: { email, password } });
-        addAlert('success', 'Registration successful! Please login.');
-        setIsRegister(false);
-        setEmail('');
-        setPassword('');
+        const { data } = await registerMutation({ variables: { email, password } });
+        if ((data as GraphQLData)?.register) {
+          setAuthSuccess('Registration successful! Please login.');
+          setIsRegister(false);
+        }
       } else {
-        const { data: res } = await loginMutate({ variables: { email, password } });
-        if (res?.login) {
-          login(res.login.token, res.login.user);
-          addAlert('success', `Welcome back, ${res.login.user.email}!`);
+        const { data } = await loginMutation({ variables: { email, password } });
+        const result = (data as GraphQLData)?.login;
+        if (result) {
+          login(result.token, result.user);
+          setAuthSuccess('Login successful!');
         }
       }
-    } catch (err: any) {
-      addAlert('error', err.message || 'Authentication failed');
+    } catch (err: unknown) {
+      setAuthError(err.message || 'Authentication failed');
     }
   };
 
-  // Click hold seat trigger
-  const handleHoldSeat = async (seatId: string) => {
-    if (!token) return;
+  // Seat booking handlers
+  const handleHoldSeat = async (seatId: string, zoneId: string) => {
     try {
-      const { data: holdRes } = await holdSeatMutate({ variables: { seatId } });
-      if (holdRes?.holdSeat) {
-        const order = holdRes.holdSeat;
-        setCurrentOrder(order);
-        setSelectedSeat(localSeatsMap[seatId]);
-        setPaymentStep(true);
-        addAlert('success', 'Seat held! Proceed to checkout.');
+      const { data } = await holdSeatMutation({ variables: { seatId } });
+      const result = (data as GraphQLData)?.holdSeat;
+      if (result) {
+        setSelectedSeat({ ...localSeatsMap[seatId], bookingId: result.id, expiresAt: result.expiresAt });
+        setCurrentZoneId(zoneId);
+        addAlert('success', 'Seat held successfully!');
       }
-    } catch (err: any) {
-      addAlert('error', err.message || 'Seat holding failed! Someone might have taken it.');
+    } catch (err: unknown) {
+      addAlert('error', err.message || 'Failed to hold seat');
     }
   };
 
-  // Mock Payment triggers
-  const handleSimulatePayment = () => {
-    setPaymentSuccess(true);
-    setPaymentStep(false);
-    addAlert('success', 'Payment processed successfully!');
+  const handleProceedToPayment = () => {
+    if (selectedSeat) {
+      setPaymentStep(true);
+      addAlert('info', 'Proceeding to payment...');
+    }
+  };
+
+  // Real payment handler — calls confirmPayment mutation
+  const handleSimulatePayment = async () => {
+    if (!selectedSeat?.bookingId || !selectedPaymentMethod) {
+      addAlert('error', 'Missing order ID or payment method');
+      return;
+    }
+
+    try {
+      const { data: result } = await confirmPaymentMutation({
+        variables: {
+          orderId: selectedSeat.bookingId,
+          paymentMethod: selectedPaymentMethod.toUpperCase().replace('-', '_'),
+        },
+      });
+
+      const paymentResult = (result as GraphQLData)?.confirmPayment;
+      if (paymentResult) {
+        setPaymentSuccess(true);
+        addAlert('success', `Payment successful! Ref: ${paymentResult.paymentReference}`);
+      }
+    } catch (err: unknown) {
+      addAlert('error', err.message || 'Payment failed. Please try again.');
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    if (!selectedSeat?.bookingId) return;
+    try {
+      await cancelOrderMutation({ variables: { orderId: selectedSeat.bookingId } });
+      addAlert('info', 'Order cancelled. Seat released.');
+      setSelectedSeat(null);
+      setPaymentStep(false);
+      setSelectedPaymentMethod(null);
+      refetch();
+    } catch (err: unknown) {
+      addAlert('error', err.message || 'Failed to cancel order');
+    }
   };
 
   const handleReset = () => {
     setSelectedSeat(null);
-    setCurrentOrder(null);
     setPaymentStep(false);
     setPaymentSuccess(false);
     setSelectedPaymentMethod(null);
     refetch();
   };
 
-  // ──────────────────────────────────────────────
-  // AUTH SCREEN — CONCERT POSTER VIBE, NOT CARD
-  // ──────────────────────────────────────────────
+  // ============================================================
+  // AUTH SCREEN (if not logged in)
+  // ============================================================
+
   if (!token) {
     return (
-      <div className="relative min-h-screen min-h-[100dvh] bg-dark-bg overflow-hidden crt-scanlines">
-        {/* Massive background typography — poster style */}
-        <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none select-none">
-          <h1 className="font-display text-[clamp(6rem,20vw,16rem)] font-black tracking-tighter leading-none text-white/[0.03] whitespace-nowrap">
-            TICKET RUSH
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: ELECTRIC_RUSH.colors.offBlack }}>
+        {(registerLoading || loginLoading) && <LoadingSpinner fullScreen message="Authenticating..." />}
+        
+        <motion.div
+          className="w-full max-w-md rounded-2xl p-8"
+          style={{
+            background: `linear-gradient(135deg, ${ELECTRIC_RUSH.colors.surfaceDark}95, ${ELECTRIC_RUSH.colors.offBlack}90)`,
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: `1px solid ${ELECTRIC_RUSH.colors.electricBlue}30`,
+          }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <h1
+            className="text-3xl font-black tracking-tighter text-center mb-2"
+            style={{
+              background: GRADIENTS.textElectric,
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              fontFamily: ELECTRIC_RUSH.typography.display,
+            }}
+          >
+            TICKETRUSH
           </h1>
-        </div>
+          <p className="text-center text-sm mb-8" style={{ color: ELECTRIC_RUSH.colors.textSecondary }}>
+            {isRegister ? 'Create your account' : 'Welcome back'}
+          </p>
 
-        {/* Electric energy leaks — 3 flashing bars, asymmetrical */}
-        <div className="absolute top-[15%] left-0 w-[40%] h-[2px] bg-gradient-to-r from-transparent via-electric-blue to-transparent opacity-30 animate-pulse" style={{ animationDuration: '3s' }} />
-        <div className="absolute bottom-[25%] right-0 w-[55%] h-[1px] bg-gradient-to-r from-transparent via-hot-magenta to-transparent opacity-25 animate-pulse" style={{ animationDuration: '4s', animationDelay: '1s' }} />
-        <div className="absolute top-[60%] left-[10%] w-[30%] h-[1px] bg-gradient-to-r from-transparent via-lime-rush to-transparent opacity-20 animate-pulse" style={{ animationDuration: '2.5s', animationDelay: '0.5s' }} />
+          <div className="space-y-4">
+            <ElectricInput
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              error={authError && authError.includes('email') ? authError : undefined}
+            />
+            <ElectricInput
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              error={authError && authError.includes('password') ? authError : undefined}
+            />
 
-        {/* Decorative floating elements — rave flyer chaos */}
-        <div className="absolute top-8 left-8 w-2 h-2 rounded-full bg-electric-blue animate-ping opacity-20" style={{ animationDuration: '2s' }} />
-        <div className="absolute bottom-12 right-12 w-3 h-3 rounded-full bg-hot-magenta animate-ping opacity-15" style={{ animationDuration: '3s', animationDelay: '1.5s' }} />
+            {authError && !authError.includes('email') && !authError.includes('password') && (
+              <div className="flex items-center gap-2 p-3 rounded-lg" style={{ background: `${ELECTRIC_RUSH.colors.error}10` }}>
+                <AlertCircle size={16} style={{ color: ELECTRIC_RUSH.colors.error }} />
+                <span className="text-sm" style={{ color: ELECTRIC_RUSH.colors.error }}>{authError}</span>
+              </div>
+            )}
 
-        {/* Scanline glow streaks */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[200px] h-[600px] bg-gradient-to-b from-electric-blue/5 via-hot-magenta/[0.02] to-transparent blur-3xl -rotate-12 pointer-events-none" />
-        <div className="absolute top-3/4 -right-20 w-[300px] h-[300px] bg-gradient-to-b from-lime-rush/5 to-transparent blur-[100px] pointer-events-none" />
+            {authSuccess && (
+              <div className="flex items-center gap-2 p-3 rounded-lg" style={{ background: `${ELECTRIC_RUSH.colors.success}10` }}>
+                <CheckCircle size={16} style={{ color: ELECTRIC_RUSH.colors.success }} />
+                <span className="text-sm" style={{ color: ELECTRIC_RUSH.colors.success }}>{authSuccess}</span>
+              </div>
+            )}
 
-        <div className="relative z-10 min-h-[100dvh] flex flex-col lg:flex-row items-stretch">
-          {/* LEFT — Poster typography (hidden on mobile, visible lg+) */}
-          <div className="hidden lg:flex lg:w-1/2 flex-col justify-center px-10 lg:px-16 py-12 select-none">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+            <NeonPulseButton
+              variant="primary"
+              size="lg"
+              fullWidth
+              onClick={handleAuth}
+              isLoading={registerLoading || loginLoading}
             >
-              {/* Distorted/stacked text */}
-              <div className="relative mb-8">
-                <span className="block font-display text-[clamp(3.5rem,5.5vw,6rem)] font-black tracking-tighter leading-[0.85] bg-gradient-to-r from-electric-blue via-electric-cyan to-electric-blue bg-clip-text text-transparent">
-                  TICKET
-                </span>
-                <span className="block font-display text-[clamp(3.5rem,5.5vw,6rem)] font-black tracking-tighter leading-[0.85] bg-gradient-to-r from-hot-magenta via-hot-pink to-hot-magenta bg-clip-text text-transparent ml-[0.15em]">
-                  RUSH
-                </span>
-              </div>
+              {isRegister ? 'Register' : 'Login'}
+            </NeonPulseButton>
 
-              {/* Zine-style meta line */}
-              <p className="font-mono text-xs text-zinc-600 uppercase tracking-[0.25em] mb-3">
-                EST. 2026 // NYC
-              </p>
-              <p className="font-mono text-[11px] text-zinc-700 leading-relaxed max-w-[40ch]">
-                REAL-TIME TICKETING. NO BROWSER QUEUES. NO BOTS. JUST YOU AND THE SHOW.
-              </p>
-            </motion.div>
-          </div>
-
-          {/* RIGHT — Auth form */}
-          <div className="flex-1 flex items-center justify-center px-6 py-12 lg:pr-16">
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full max-w-md"
+            <NeonPulseButton
+              variant="ghost"
+              size="md"
+              fullWidth
+              onClick={() => {
+                setIsRegister(!isRegister);
+                setAuthError('');
+                setAuthSuccess('');
+              }}
             >
-              {/* Mobile mini-logo */}
-              <div className="lg:hidden mb-8 text-center">
-                <span className="font-display text-3xl font-black tracking-tighter bg-gradient-to-r from-electric-blue via-hot-magenta to-lime-rush bg-clip-text text-transparent">
-                  TICKET RUSH
-                </span>
-              </div>
-
-              {/* Form card — offset, asymmetrical border treatment */}
-              <div className="relative">
-                {/* Top-left accent corner */}
-                <div className="absolute -top-3 -left-3 w-8 h-8 border-l-2 border-t-2 border-electric-blue/40" />
-
-                <div className="bg-dark-surface/70 backdrop-blur-xl border border-zinc-800/80 rounded-xl p-8">
-                  <form onSubmit={handleAuth} className="space-y-5">
-                    {/* Mini eyebrow (the ONLY one on this screen) */}
-                    <p className="font-mono text-[10px] text-zinc-600 uppercase tracking-[0.2em] mb-6">
-                      {isRegister ? 'CREATE ACCOUNT' : 'SIGN IN'}
-                    </p>
-
-                    <div>
-                      <input
-                        type="email"
-                        required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full bg-dark-bg/80 border border-zinc-800 rounded-lg px-4 py-3.5 text-white text-sm placeholder-zinc-700 focus:outline-none focus:border-electric-blue/50 focus:ring-1 focus:ring-electric-blue/20 transition-all"
-                        placeholder="EMAIL"
-                      />
-                    </div>
-
-                    <div>
-                      <input
-                        type="password"
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full bg-dark-bg/80 border border-zinc-800 rounded-lg px-4 py-3.5 text-white text-sm placeholder-zinc-700 focus:outline-none focus:border-hot-magenta/50 focus:ring-1 focus:ring-hot-magenta/20 transition-all"
-                        placeholder="PASSWORD"
-                      />
-                    </div>
-
-                    {authError && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="flex items-center gap-2 text-red-400 bg-red-950/30 border border-red-900/40 rounded-lg px-3.5 py-2.5 text-xs"
-                      >
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                        <span>{authError}</span>
-                      </motion.div>
-                    )}
-
-                    {authSuccess && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="flex items-center gap-2 text-lime-rush bg-lime-rush/5 border border-lime-rush/20 rounded-lg px-3.5 py-2.5 text-xs"
-                      >
-                        <CheckCircle className="w-3.5 h-3.5 shrink-0" />
-                        <span>{authSuccess}</span>
-                      </motion.div>
-                    )}
-
-                    <motion.button
-                      type="submit"
-                      disabled={loginLoading || registerLoading}
-                      className="w-full py-3.5 rounded-lg bg-gradient-to-r from-electric-blue to-electric-cyan text-dark-bg font-bold text-sm tracking-wider uppercase disabled:opacity-40 transition-all"
-                      whileHover={{ scale: 1.02, boxShadow: '0 0 30px rgba(0,212,255,0.3)' }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      {loginLoading || registerLoading ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          {isRegister ? 'CREATING...' : 'ENTERING...'}
-                        </span>
-                      ) : (
-                        isRegister ? 'CREATE ACCOUNT' : 'ENTER'
-                      )}
-                    </motion.button>
-                  </form>
-
-                  {/* Toggle */}
-                  <div className="mt-6 text-center">
-                    <button
-                      onClick={() => {
-                        setIsRegister(!isRegister);
-                        setAuthError('');
-                        setAuthSuccess('');
-                      }}
-                      className="font-mono text-[11px] text-zinc-600 hover:text-electric-blue uppercase tracking-[0.15em] transition-colors"
-                    >
-                      {isRegister
-                        ? 'ALREADY IN? SIGN IN →'
-                        : 'FIRST TIME? JOIN →'}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Bottom-right accent corner */}
-                <div className="absolute -bottom-3 -right-3 w-8 h-8 border-r-2 border-b-2 border-hot-magenta/40" />
-              </div>
-
-              {/* Footer text — raw zine style */}
-              <p className="mt-8 text-center font-mono text-[10px] text-zinc-800 uppercase tracking-[0.2em]">
-                F*CK THE QUEUE. GET THE SEAT.
-              </p>
-            </motion.div>
+              {isRegister ? 'Already have an account? Login' : "Don't have an account? Register"}
+            </NeonPulseButton>
           </div>
-        </div>
-
-        {/* Alerts */}
-        <AlertManager alerts={alerts} onDismiss={(id) => setAlerts((a) => a.filter((x) => x.id !== id))} />
+        </motion.div>
       </div>
     );
   }
 
-  // ──────────────────────────────────────────────
-  // MAIN AUTHENTICATED VIEW
-  // ──────────────────────────────────────────────
+  // ============================================================
+  // MAIN APP (logged in)
+  // ============================================================
+
   return (
-    <div className="min-h-screen bg-dark-bg text-zinc-100 crt-scanlines">
-      {/* Navigation */}
-      <Navigation
-        userEmail={user?.email}
+    <div className="min-h-screen" style={{ background: ELECTRIC_RUSH.colors.offBlack }}>
+      {/* Navbar */}
+      <Navbar
+        user={user}
         onLogout={logout}
-        onNavigate={(section) => console.log('Navigate to:', section)}
+        onMobileMenuToggle={setIsMobileMenuOpen}
       />
+
+      {/* Mobile Menu */}
+      <MobileMenu
+        isOpen={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
+        user={user}
+        onLogout={logout}
+      />
+
+      {/* Alert Manager */}
+      <AlertManager alerts={alerts} onDismiss={(id) => setAlerts((prev) => prev.filter((a) => a.id !== id))} />
 
       {/* Hero Section */}
       <HeroSection
-        events={MOCK_EVENTS}
-        onEventSelect={(eventId) => addAlert('info', `Selected event: ${eventId}`)}
+        onDiscoverClick={() => addAlert('info', 'Scrolling to events...')}
+        onWishlistClick={() => addAlert('info', 'Wishlist feature coming soon!')}
       />
 
       {/* Event Carousel */}
       <EventCarousel
-        events={MOCK_EVENTS}
-        onEventSelect={(eventId) => addAlert('info', `Viewing event: ${eventId}`)}
+        events={liveEvents.length > 0 ? liveEvents : MOCK_EVENTS}
+        onEventSelect={(eventId: string) => addAlert('info', `Viewing event: ${eventId}`)}
+        onEventWishlist={(eventId: string) => addAlert('info', `Added event ${eventId} to wishlist`)}
       />
 
       {/* Main Content - Seat Booking & Checkout */}
@@ -483,15 +643,24 @@ export default function Home() {
         transition={{ duration: 0.6 }}
         viewport={{ once: true }}
       >
-        {!paymentSuccess && !paymentStep && (
+        {loading && <LoadingSpinner size="lg" message="Loading concert details..." />}
+        
+        {error && (
+          <div className="flex items-center justify-center gap-3 p-6 rounded-xl" style={{ background: `${ELECTRIC_RUSH.colors.error}10` }}>
+            <AlertCircle size={24} style={{ color: ELECTRIC_RUSH.colors.error }} />
+            <span style={{ color: ELECTRIC_RUSH.colors.error }}>Error: {error.message}</span>
+          </div>
+        )}
+
+        {!paymentSuccess && !paymentStep && data && (
           <EventDetail
-            eventTitle={data?.getConcertDetail?.title || 'Live Concert'}
-            venue={data?.getConcertDetail?.venue}
-            date={data?.getConcertDetail?.startTime}
+            eventTitle={(data as GraphQLData)?.getConcertDetail?.title || 'Live Concert'}
+            venue={(data as GraphQLData)?.getConcertDetail?.venue}
+            date={(data as GraphQLData)?.getConcertDetail?.startTime}
             seats={Object.values(localSeatsMap)}
             selectedSeat={selectedSeat}
             currentUserId={user?.id}
-            onSeatSelect={handleHoldSeat}
+            onSeatSelect={(seatId: string) => handleHoldSeat(seatId, '')}
             onSeatUnselect={() => setSelectedSeat(null)}
           />
         )}
@@ -502,7 +671,7 @@ export default function Home() {
             orderTotal={selectedSeat.price}
             onPaymentMethodSelect={setSelectedPaymentMethod}
             onConfirmPayment={handleSimulatePayment}
-            isLoading={false}
+            isLoading={paymentLoading}
             paymentSuccess={paymentSuccess}
           />
         )}
@@ -514,26 +683,23 @@ export default function Home() {
             animate={{ opacity: 1, scale: 1 }}
           >
             <div className="mb-8">
-              <button
+              <NeonPulseButton
+                variant="primary"
+                size="lg"
                 onClick={handleReset}
-                className="px-8 py-3 bg-lime-rush text-dark-bg font-bold rounded-lg hover:shadow-glow-lime transition-all"
               >
                 Book Another Ticket
-              </button>
+              </NeonPulseButton>
             </div>
           </motion.div>
         )}
       </motion.div>
 
-      {/* ────────────────────────────────────────── */}
-      {/* FOOTER — RAW, AGGRESSIVE, NOT GENERIC       */}
-      {/* ────────────────────────────────────────── */}
+      {/* Footer */}
       <footer className="relative border-t border-zinc-800/60 mt-20 py-16 overflow-hidden">
-        {/* Background flare */}
         <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[400px] h-[200px] bg-gradient-to-b from-electric-blue/5 to-transparent blur-[80px] pointer-events-none" />
 
         <div className="relative max-w-7xl mx-auto px-6">
-          {/* Row 1: bold statement */}
           <div className="mb-10">
             <h3 className="font-display text-4xl sm:text-5xl font-black tracking-tighter leading-[0.9]">
               <span className="bg-gradient-to-r from-electric-blue via-hot-magenta to-lime-rush bg-clip-text text-transparent">
@@ -542,7 +708,6 @@ export default function Home() {
             </h3>
           </div>
 
-          {/* Row 2: links + boaster */}
           <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-8">
             <div className="flex flex-wrap gap-x-8 gap-y-2">
               <a href="#" className="text-zinc-600 hover:text-electric-blue text-sm font-mono uppercase tracking-wider transition-colors">
@@ -567,7 +732,6 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Row 3: bottom bar */}
           <div className="mt-10 pt-6 border-t border-zinc-800/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <p className="font-mono text-[10px] text-zinc-800">
               TICKETRUSH // 2026

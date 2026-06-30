@@ -36,7 +36,6 @@ export function EventDetail({
   date,
   seats = [],
   selectedSeat,
-  currentUserId,
   onSeatSelect,
   onSeatUnselect,
 }: EventDetailProps) {

@@ -13,8 +13,28 @@ import ELECTRIC_RUSH, { GRADIENTS } from '@/lib/design-tokens';
 // 1. HERO SECTION WITH KINETIC SCRAMBLE
 // ============================================================
 
+// Letter animation variants - generated at module level to avoid purity issues
+const letterVariants = {
+  hidden: {
+    x: Math.random() * 100 - 50,
+    y: Math.random() * 100 - 50,
+    opacity: 0,
+    rotate: Math.random() * 360,
+  },
+  visible: {
+    x: 0,
+    y: 0,
+    opacity: 1,
+    rotate: 0,
+    transition: {
+      type: 'spring',
+      stiffness: 300,
+      damping: 20,
+    },
+  },
+};
+
 const HeroHeadline = () => {
-  const prefersReducedMotion = useReducedMotion();
   const text = 'ELECTRIC PULSE';
   const letters = text.split('');
 
@@ -29,25 +49,6 @@ const HeroHeadline = () => {
     },
   };
 
-  const letterVariants: any = {
-    hidden: {
-      x: Math.random() * 100 - 50,
-      y: Math.random() * 100 - 50,
-      opacity: 0,
-      rotate: Math.random() * 360,
-    },
-    visible: {
-      x: 0,
-      y: 0,
-      opacity: 1,
-      rotate: 0,
-      transition: {
-        type: 'spring',
-        stiffness: 300,
-        damping: 20,
-      },
-    },
-  };
 
   return (
     <motion.h1
@@ -443,7 +444,6 @@ export const SearchBar = () => {
 // ============================================================
 
 export const EventCarousel = () => {
-  const prefersReducedMotion = useReducedMotion();
   const events = [
     {
       title: 'The Weeknd',

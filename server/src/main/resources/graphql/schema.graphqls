@@ -1,12 +1,16 @@
 type Query {
     me: User
     getConcertDetail(concertId: ID!): ConcertDetail!
+    getConcerts(status: String, limit: Int): [ConcertSummary!]!
+    getFeaturedConcerts(limit: Int): [ConcertSummary!]!
 }
 
 type Mutation {
     register(input: RegisterInput!): User!
     login(input: LoginInput!): AuthPayload!
     holdSeat(seatId: ID!): Order!
+    confirmPayment(orderId: ID!, paymentMethod: PaymentMethod!): PaymentResult!
+    cancelOrder(orderId: ID!): Order!
 }
 
 type Subscription {
@@ -20,6 +24,20 @@ type ConcertDetail {
     startTime: String!
     status: String!
     zones: [SeatZoneDetail!]!
+}
+
+type ConcertSummary {
+    id: ID!
+    title: String!
+    description: String
+    venue: String!
+    startTime: String!
+    status: String!
+    availableSeats: Int!
+    minPrice: Float!
+    maxPrice: Float!
+    zoneCount: Int!
+    imageUrl: String
 }
 
 type SeatZoneDetail {
@@ -64,6 +82,30 @@ type Order {
     expiresAt: String!
 }
 
+type PaymentResult {
+    order: Order!
+    ticket: Ticket!
+    paymentReference: String!
+    paymentMethod: PaymentMethod!
+    paidAt: String!
+    totalPrice: Float!
+}
+
+type Ticket {
+    id: ID!
+    orderId: ID!
+    seatId: ID!
+    ticketCode: String!
+}
+
+enum PaymentMethod {
+    VNPAY
+    MOMO
+    ZALOPAY
+    BANKING
+    CARD
+}
+
 input RegisterInput {
     email: String!
     password: String!
@@ -74,4 +116,3 @@ input LoginInput {
     email: String!
     password: String!
 }
-

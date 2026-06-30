@@ -67,9 +67,18 @@ function ScrambleText({ text, className, delay = 0 }: { text: string; className?
   return <span className={className}>{display}</span>;
 }
 
+
+// Pre-compute visualizer bars at module level to avoid purity issues
+const VISUALIZER_BARS = Array.from({ length: 36 }).map((_, i) => ({
+  id: i,
+  heights: [4 + Math.random() * 28, 4 + Math.random() * 48, 4 + Math.random() * 28],
+  duration: 0.6 + Math.random() * 0.5,
+  color: i % 4 === 0 ? '#ff2d7b' : i % 3 === 0 ? '#39ff14' : '#00d4ff',
+}));
 export function HeroSection({ events = [], onEventSelect }: HeroSectionProps) {
   const reduce = useReducedMotion();
   const featuredEvent = events[0];
+
 
   return (
     <section className="relative w-full min-h-[100dvh] bg-dark-bg overflow-hidden">
@@ -200,15 +209,15 @@ export function HeroSection({ events = [], onEventSelect }: HeroSectionProps) {
 
               {/* Sound-wave visualizer */}
               <div className="absolute bottom-0 left-0 right-0 h-24 flex items-end gap-[3px] px-6 pb-5">
-                {Array.from({ length: 36 }).map((_, i) => (
+                {VISUALIZER_BARS.map((bar, i) => (
                   <motion.div
                     key={i}
                     className="w-[3px] rounded-full"
                     style={{
                       background: `linear-gradient(to top, ${i % 4 === 0 ? '#ff2d7b' : i % 3 === 0 ? '#39ff14' : '#00d4ff'}, transparent)`,
                     }}
-                    animate={reduce ? {} : { height: [4 + Math.random() * 28, 4 + Math.random() * 48, 4 + Math.random() * 28] }}
-                    transition={{ duration: 0.6 + Math.random() * 0.5, repeat: Infinity, delay: i * 0.04 }}
+                    animate={reduce ? {} : { height: bar.heights }}
+                    transition={{ duration: bar.duration, repeat: Infinity, delay: i * 0.04 }}
                   />
                 ))}
               </div>

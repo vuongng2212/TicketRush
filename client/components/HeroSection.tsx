@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, useMemo } from 'framer-motion';
 import { useReducedMotion } from 'framer-motion';
 import ELECTRIC_RUSH, { GRADIENTS } from '@/lib/design-tokens';
 import { ArrowRight, Zap } from 'lucide-react';
@@ -19,6 +19,12 @@ interface KineticHeadlineProps {
   splitByWord?: boolean;
 }
 
+// Pre-compute random offsets at module level to avoid purity issues
+const ELEMENT_RANDOM_OFFSETS = {
+  x: Math.random() * 120 - 60,
+  y: Math.random() * 120 - 60,
+  rotate: Math.random() * 360,
+};
 const KineticHeadline = ({ text, splitByWord = false }: KineticHeadlineProps) => {
   const prefersReducedMotion = useReducedMotion();
   
@@ -40,10 +46,10 @@ const KineticHeadline = ({ text, splitByWord = false }: KineticHeadlineProps) =>
 
   const elementVariants = {
     hidden: {
-      x: Math.random() * 120 - 60,
-      y: Math.random() * 120 - 60,
+      x: ELEMENT_RANDOM_OFFSETS.x,
+      y: ELEMENT_RANDOM_OFFSETS.y,
       opacity: 0,
-      rotate: Math.random() * 360,
+      rotate: ELEMENT_RANDOM_OFFSETS.rotate,
       scale: 0.5,
     },
     visible: {
@@ -255,6 +261,16 @@ export const HeroSection = ({
 }: HeroSectionProps) => {
   const prefersReducedMotion = useReducedMotion();
 
+
+  // Pre-compute random particle positions to avoid purity errors
+  const particles = useMemo(() => {
+    return Array.from({ length: 5 }).map((_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      top: Math.random() * 100,
+      color: [ELECTRIC_RUSH.colors.electricBlue, ELECTRIC_RUSH.colors.hotMagenta, ELECTRIC_RUSH.colors.limeRush][i % 3],
+    }));
+  }, []);
   return (
     <section className="relative w-full min-h-screen overflow-hidden flex items-center justify-center pt-20 pb-12">
       {/* Background Layers */}
@@ -379,18 +395,14 @@ export const HeroSection = ({
       {/* Floating particles (optional enhancement) */}
       {!prefersReducedMotion && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(5)].map((_, i) => (
+          {particles.map((particle) => (
             <motion.div
-              key={i}
+              key={particle.id}
               className="absolute w-1 h-1 rounded-full"
               style={{
-                background: [
-                  ELECTRIC_RUSH.colors.electricBlue,
-                  ELECTRIC_RUSH.colors.hotMagenta,
-                  ELECTRIC_RUSH.colors.limeRush,
-                ][i % 3],
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
+                background: particle.color,
+                left: `${particle.left}%`,
+                top: `${particle.top}%`,
               }}
               animate={{
                 y: [0, -100, 0],

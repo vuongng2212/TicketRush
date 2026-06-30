@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -134,5 +135,89 @@ public class BookingService {
                 }
             }
         });
+    }
+
+    @Transactional
+    public PaymentResult confirmPayment(UUID orderId, UUID userId, PaymentMethod paymentMethod) {
+        // 1. Find order, verify ownership
+        Order order = orderRepository.findByIdAndUserId(orderId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found or not owned by user: " + orderId));
+
+        // 2. Verify status
+        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
+            throw new IllegalStateException("Order is not in PENDING_PAYMENT status (current: " + order.getStatus() + ")");
+        }
+
+        // 3. Verify not expired
+        if (order.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new IllegalStateException("Order has expired");
+        }
+
+        // 4. Get ticket for this order
+        List<Ticket> tickets = ticketRepository.findByOrderId(orderId);
+        if (tickets.isEmpty()) {
+            throw new IllegalStateException("No ticket found for order: " + orderId);
+        }
+        Ticket ticket = tickets.get(0);
+
+        // 5. Update order to COMPLETED
+        order.setStatus(OrderStatus.COMPLETED);
+        order = orderRepository.save(order);
+
+        // 6. Update seat to SOLD
+        Seat seat = seatRepository.findById(ticket.getSeatId())
+                .orElseThrow(() -> new IllegalArgumentException("Seat not found: " + ticket.getSeatId()));
+        seat.setStatus(SeatStatus.SOLD);
+        seatRepository.save(seat);
+
+        // 7. Generate fake payment reference
+        String paymentReference = "PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+
+        // 8. Build and return PaymentResult
+        return PaymentResult.builder()
+                .order(order)
+                .ticket(ticket)
+                .paymentReference(paymentReference)
+                .paymentMethod(paymentMethod)
+                .paidAt(LocalDateTime.now())
+                .totalPrice(order.getTotalPrice())
+                .build();
+    }
+
+    @Transactional
+    public Order cancelOrder(UUID orderId, UUID userId) {
+        Order order = orderRepository.findByIdAndUserId(orderId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found or not owned by user: " + orderId));
+
+        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
+            throw new IllegalStateException("Only PENDING_PAYMENT orders can be cancelled");
+        }
+
+        order.setStatus(OrderStatus.CANCELLED);
+        order = orderRepository.save(order);
+
+        // Release tickets & seats
+        ticketRepository.findByOrderId(orderId).forEach(ticket -> {
+            Seat seat = seatRepository.findById(ticket.getSeatId()).orElse(null);
+            if (seat != null) {
+                seat.setStatus(SeatStatus.AVAILABLE);
+                seat.setHeldByUserId(null);
+                seat.setHeldUntil(null);
+                seatRepository.save(seat);
+
+                // Find zone to get concertId for Redis release + event broadcast
+                seatZoneRepository.findById(seat.getSeatZoneId()).ifPresent(zone -> {
+                    redisReservationService.releaseSeat(zone.getConcertId(), seat.getId());
+                    seatEventPublisher.publish(com.ticketrush.server.domain.concert.SeatUpdatedPayload.builder()
+                            .seatId(seat.getId())
+                            .concertId(zone.getConcertId())
+                            .status("AVAILABLE")
+                            .heldByUserId(null)
+                            .build());
+                });
+            }
+        });
+
+        return order;
     }
 }

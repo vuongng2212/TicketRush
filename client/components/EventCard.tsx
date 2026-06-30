@@ -63,7 +63,6 @@ export const EventCard = ({
   event,
   onSelect,
   onWishlist,
-  variant = 'default',
   animationDelay = 0,
 }: EventCardProps) => {
   const prefersReducedMotion = useReducedMotion();

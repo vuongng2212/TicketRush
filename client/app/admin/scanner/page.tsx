@@ -1,9 +1,14 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { Camera, CheckCircle, XCircle, AlertTriangle, RefreshCw, Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+
+interface CameraDevice {
+  id: string;
+  label: string;
+}
 
 interface CheckInResponse {
   status: 'SUCCESS' | 'ALREADY_CHECKED_IN' | 'INVALID_TICKET' | 'UNAUTHORIZED' | 'UNKNOWN';
@@ -19,10 +24,43 @@ export default function ScannerPage() {
   const [scanResult, setScanResult] = useState<CheckInResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
-  const [cameras, setCameras] = useState<any[]>([]);
+  const [cameras, setCameras] = useState<CameraDevice[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string>('');
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerId = 'reader';
+
+  const stopScanner = () => {
+    if (scannerRef.current && scannerRef.current.isScanning) {
+      scannerRef.current
+        .stop()
+        .then(() => {
+          setIsScanning(false);
+        })
+        .catch((err) => {
+          console.error('Failed to stop scanner:', err);
+        });
+    } else {
+      setIsScanning(false);
+    }
+  };
+
+  const processTicket = async (token: string) => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/check-in', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticketToken: token }),
+      });
+      const data = await res.json();
+      setScanResult(data);
+    } catch (err) {
+      console.error(err);
+      setScanResult({ status: 'UNKNOWN', error: 'API Gateway connection failure' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Fetch available cameras
   useEffect(() => {
@@ -62,46 +100,13 @@ export default function ScannerPage() {
           stopScanner();
           await processTicket(decodedText);
         },
-        (errorMessage) => {
-          // Verbose log filter out
+        () => {
+          // Verbose log filter out - ignore scan errors
         }
       );
     } catch (err) {
       console.error('Failed to start scanner:', err);
       setIsScanning(false);
-    }
-  };
-
-  const stopScanner = () => {
-    if (scannerRef.current && scannerRef.current.isScanning) {
-      scannerRef.current
-        .stop()
-        .then(() => {
-          setIsScanning(false);
-        })
-        .catch((err) => {
-          console.error('Failed to stop scanner:', err);
-        });
-    } else {
-      setIsScanning(false);
-    }
-  };
-
-  const processTicket = async (token: string) => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/admin/check-in', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticketToken: token }),
-      });
-      const data = await res.json();
-      setScanResult(data);
-    } catch (err) {
-      console.error(err);
-      setScanResult({ status: 'UNKNOWN', error: 'API Gateway connection failure' });
-    } finally {
-      setLoading(false);
     }
   };
 

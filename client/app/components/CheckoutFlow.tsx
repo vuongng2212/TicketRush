@@ -27,29 +27,42 @@ const PAYMENT_METHODS = [
   { id: 'ewallet', label: 'E-Wallet', icon: Smartphone, gradient: 'from-lime-rush to-electric-blue' },
 ];
 
+// Generate particles at module level to avoid purity issues
+const CONFETTI_PARTICLES = Array.from({ length: 30 }).map((_, i) => ({
+  id: i,
+  left: Math.random() * 100,
+  xOffset: (Math.random() - 0.5) * 200,
+  rotation: Math.random() * 720,
+  duration: 1.5 + Math.random() * 2,
+  delay: Math.random() * 0.5,
+  color: ['#00d4ff', '#ff2d7b', '#39ff14', '#eaff00', '#0affed'][i % 5],
+}));
+
 function ConfettiEffect() {
   const reduce = useReducedMotion();
+  
+
   if (reduce) return null;
 
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
-      {Array.from({ length: 30 }).map((_, i) => (
+      {CONFETTI_PARTICLES.map((particle) => (
         <motion.div
-          key={i}
+          key={particle.id}
           className="absolute w-2 h-2 rounded-full"
           style={{
-            background: ['#00d4ff', '#ff2d7b', '#39ff14', '#eaff00', '#0affed'][i % 5],
-            left: `${Math.random() * 100}%`,
+            background: particle.color,
+            left: `${particle.left}%`,
             top: '-10%',
           }}
           animate={{
             y: ['0vh', '110vh'],
-            x: [0, (Math.random() - 0.5) * 200],
-            rotate: [0, Math.random() * 720],
+            x: [0, particle.xOffset],
+            rotate: [0, particle.rotation],
           }}
           transition={{
-            duration: 1.5 + Math.random() * 2,
-            delay: Math.random() * 0.5,
+            duration: particle.duration,
+            delay: particle.delay,
             ease: 'easeIn',
           }}
         />

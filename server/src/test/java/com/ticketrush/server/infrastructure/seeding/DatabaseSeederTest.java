@@ -6,6 +6,7 @@ import com.ticketrush.server.domain.concert.Seat;
 import com.ticketrush.server.domain.concert.SeatRepository;
 import com.ticketrush.server.domain.concert.SeatZone;
 import com.ticketrush.server.domain.concert.SeatZoneRepository;
+import com.ticketrush.server.infrastructure.redis.RedisReservationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -22,90 +23,86 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * Unit tests for the seeder orchestration logic. The actual transactional
+ * persistence is delegated to {@link ConcertSeederService} which is mocked here.
+ */
 class DatabaseSeederTest {
 
-    private ConcertRepository concertRepository;
-    private SeatZoneRepository seatZoneRepository;
-    private SeatRepository seatRepository;
+    // Mirror the 8 seed concert UUIDs from DatabaseSeeder.SEED_CONCERTS
+    private static final List<UUID> SEED_CONCERT_IDS = List.of(
+            UUID.fromString("00000000-0000-0000-0000-000000000001"),
+            UUID.fromString("00000000-0000-0000-0000-000000000002"),
+            UUID.fromString("00000000-0000-0000-0000-000000000003"),
+            UUID.fromString("00000000-0000-0000-0000-000000000004"),
+            UUID.fromString("00000000-0000-0000-0000-000000000005"),
+            UUID.fromString("00000000-0000-0000-0000-000000000006"),
+            UUID.fromString("00000000-0000-0000-0000-000000000007"),
+            UUID.fromString("00000000-0000-0000-0000-000000000008"));
+
+    private ConcertSeederService seederService;
     private DatabaseSeeder databaseSeeder;
 
     @BeforeEach
     void setUp() {
-        concertRepository = mock(ConcertRepository.class);
-        seatZoneRepository = mock(SeatZoneRepository.class);
-        seatRepository = mock(SeatRepository.class);
-        databaseSeeder = new DatabaseSeeder(concertRepository, seatZoneRepository, seatRepository);
+        seederService = mock(ConcertSeederService.class);
+        databaseSeeder = new DatabaseSeeder(seederService);
     }
 
     @Test
-    void run_skipsWhenConcertAlreadySeeded() throws Exception {
-        UUID concertId = UUID.fromString("00000000-0000-0000-0000-000000000001");
-        when(concertRepository.existsById(concertId)).thenReturn(true);
+    void run_iteratesAll8Concerts() throws Exception {
+        // Mock all 8 to "succeed" with 100 seats each
+        when(seederService.seedConcert(any(UUID.class), any(), any(), any(Integer.class),
+                any(), any(), any(Integer.class), any(Integer.class), any(Integer.class)))
+                .thenReturn(100);
 
         databaseSeeder.run();
 
-        verify(concertRepository, never()).save(any(Concert.class));
-        verify(seatZoneRepository, never()).save(any(SeatZone.class));
-        verify(seatRepository, never()).saveAll(anyList());
+        // Verify seederService.seedConcert was called 8 times (once per concert)
+        verify(seederService, org.mockito.Mockito.times(8))
+                .seedConcert(any(UUID.class), any(), any(), any(Integer.class),
+                        any(), any(), any(Integer.class), any(Integer.class), any(Integer.class));
+
+        // Capture all calls and verify they're for the 8 expected concerts
+        ArgumentCaptor<UUID> idCaptor = ArgumentCaptor.forClass(UUID.class);
+        verify(seederService, org.mockito.Mockito.times(8))
+                .seedConcert(idCaptor.capture(), any(), any(), any(Integer.class),
+                        any(), any(), any(Integer.class), any(Integer.class), any(Integer.class));
+        List<UUID> calledIds = idCaptor.getAllValues();
+        assertThat(calledIds).containsExactlyInAnyOrderElementsOf(SEED_CONCERT_IDS);
     }
 
     @Test
-    void run_seedsAllDataWhenFresh() throws Exception {
-        UUID concertId = UUID.fromString("00000000-0000-0000-0000-000000000001");
-        when(concertRepository.existsById(concertId)).thenReturn(false);
-        when(concertRepository.save(any(Concert.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(seatZoneRepository.save(any(SeatZone.class))).thenAnswer(inv -> inv.getArgument(0));
+    void run_handlesIndividualConcertFailure() throws Exception {
+        // First call throws, subsequent calls succeed
+        when(seederService.seedConcert(any(UUID.class), any(), any(), any(Integer.class),
+                any(), any(), any(Integer.class), any(Integer.class), any(Integer.class)))
+                .thenThrow(new RuntimeException("seed failed"))
+                .thenReturn(100); // subsequent calls return 100
 
+        // Should not throw — exception is caught by the service's internal handling
+        // (the service's @Transactional will roll back the failed concert, and the
+        // seeder continues with the next one)
         databaseSeeder.run();
 
-        ArgumentCaptor<Concert> concertCaptor = ArgumentCaptor.forClass(Concert.class);
-        verify(concertRepository).save(concertCaptor.capture());
-        assertThat(concertCaptor.getValue().getId()).isEqualTo(concertId);
-        assertThat(concertCaptor.getValue().getTitle()).isEqualTo("TicketRush Live Concert");
-        assertThat(concertCaptor.getValue().getStatus().name()).isEqualTo("OPEN");
-
-        verify(seatZoneRepository, org.mockito.Mockito.times(2)).save(any(SeatZone.class));
-
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<Seat>> seatsCaptor = ArgumentCaptor.forClass(List.class);
-        verify(seatRepository).saveAll(seatsCaptor.capture());
-        assertThat(seatsCaptor.getValue()).hasSize(2000);
+        // All 8 concerts are still attempted
+        verify(seederService, org.mockito.Mockito.times(8))
+                .seedConcert(any(UUID.class), any(), any(), any(Integer.class),
+                        any(), any(), any(Integer.class), any(Integer.class), any(Integer.class));
     }
 
     @Test
-    void run_handlesConcertSaveConflict() throws Exception {
-        UUID concertId = UUID.fromString("00000000-0000-0000-0000-000000000001");
-        when(concertRepository.existsById(concertId)).thenReturn(false);
-        when(concertRepository.save(any(Concert.class)))
-                .thenThrow(new RuntimeException("conflict"));
+    void run_skipsIfSeederReturnsZero() throws Exception {
+        // All concerts return 0 (already seeded scenario)
+        when(seederService.seedConcert(any(UUID.class), any(), any(), any(Integer.class),
+                any(), any(), any(Integer.class), any(Integer.class), any(Integer.class)))
+                .thenReturn(0);
 
         databaseSeeder.run();
 
-        verify(seatZoneRepository, never()).save(any(SeatZone.class));
-        verify(seatRepository, never()).saveAll(anyList());
-    }
-
-    @Test
-    void run_handlesZoneSaveConflict() throws Exception {
-        UUID concertId = UUID.fromString("00000000-0000-0000-0000-000000000001");
-        when(concertRepository.existsById(concertId)).thenReturn(false);
-        when(concertRepository.save(any(Concert.class))).thenAnswer(inv -> inv.getArgument(0));
-        doThrow(new RuntimeException("zone conflict"))
-                .when(seatZoneRepository).save(any(SeatZone.class));
-
-        databaseSeeder.run();
-
-        verify(seatRepository).saveAll(anyList());
-    }
-
-    @Test
-    void run_handlesSeatSaveConflict() throws Exception {
-        UUID concertId = UUID.fromString("00000000-0000-0000-0000-000000000001");
-        when(concertRepository.existsById(concertId)).thenReturn(false);
-        when(concertRepository.save(any(Concert.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(seatZoneRepository.save(any(SeatZone.class))).thenAnswer(inv -> inv.getArgument(0));
-        doThrow(new RuntimeException("seats conflict")).when(seatRepository).saveAll(anyList());
-
-        databaseSeeder.run();
+        // All 8 concerts are still attempted
+        verify(seederService, org.mockito.Mockito.times(8))
+                .seedConcert(any(UUID.class), any(), any(), any(Integer.class),
+                        any(), any(), any(Integer.class), any(Integer.class), any(Integer.class));
     }
 }

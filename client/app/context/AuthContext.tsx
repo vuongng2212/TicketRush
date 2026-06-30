@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(storedToken);
       try {
         setUser(JSON.parse(storedUser));
-      } catch (e) {
+      } catch {
         // Clear corrupt storage
         localStorage.removeItem('ticketrush_token');
         localStorage.removeItem('ticketrush_user');

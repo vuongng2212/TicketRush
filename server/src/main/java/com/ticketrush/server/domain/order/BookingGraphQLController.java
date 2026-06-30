@@ -39,4 +39,26 @@ public class BookingGraphQLController {
         return seatEventPublisher.getEventStream()
                 .filter(event -> event.getConcertId().equals(concertUuid));
     }
+
+    @MutationMapping
+    @PreAuthorize("isAuthenticated()")
+    public PaymentResult confirmPayment(
+            @Argument String orderId,
+            @Argument PaymentMethod paymentMethod) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Authenticated user not found in database"));
+        return bookingService.confirmPayment(UUID.fromString(orderId), user.getId(), paymentMethod);
+    }
+
+    @MutationMapping
+    @PreAuthorize("isAuthenticated()")
+    public Order cancelOrder(@Argument String orderId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Authenticated user not found in database"));
+        return bookingService.cancelOrder(UUID.fromString(orderId), user.getId());
+    }
 }
