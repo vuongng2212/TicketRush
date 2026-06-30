@@ -69,8 +69,9 @@ public class ConcurrencyBookingIntegrationTest {
         concertRepository.deleteAll();
         userRepository.deleteAll();
 
-        // Setup Concert
+        // Setup Concert (id must be manually assigned — no @GeneratedValue)
         concert = Concert.builder()
+                .id(UUID.randomUUID())
                 .title("Blackpink World Tour")
                 .venue("My Dinh Stadium")
                 .startTime(LocalDateTime.now().plusDays(10))
@@ -81,8 +82,9 @@ public class ConcurrencyBookingIntegrationTest {
                 .build();
         concert = concertRepository.save(concert);
 
-        // Setup Seat Zone
+        // Setup Seat Zone (id must be manually assigned — no @GeneratedValue)
         zone = SeatZone.builder()
+                .id(UUID.randomUUID())
                 .concertId(concert.getId())
                 .name("VIP A")
                 .price(new BigDecimal("250.00"))
@@ -90,8 +92,9 @@ public class ConcurrencyBookingIntegrationTest {
                 .build();
         zone = seatZoneRepository.save(zone);
 
-        // Setup Single Seat to test race conditions
+        // Setup Single Seat to test race conditions (id must be manually assigned)
         seat = Seat.builder()
+                .id(UUID.randomUUID())
                 .seatZoneId(zone.getId())
                 .seatNumber("VIP-01")
                 .status(SeatStatus.AVAILABLE)

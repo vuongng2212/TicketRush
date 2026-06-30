@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
@@ -24,6 +25,10 @@ import static org.mockito.Mockito.when;
  * Unit tests for {@link ConcertSeederService}. Note: the @Transactional annotation
  * has no effect in pure unit tests (no Spring context), but the business logic
  * is fully exercised.
+ * <p>
+ * The seeder always creates a fresh concert (no existsById pre-check); the
+ * DatabaseSeeder is responsible for guarding against re-runs at a higher level
+ * if needed. These tests pin down that contract.
  */
 class ConcertSeederServiceTest {
 
@@ -47,26 +52,7 @@ class ConcertSeederServiceTest {
     }
 
     @Test
-    void seedConcert_skipsIfAlreadyExists() {
-        when(concertRepository.existsById(CONCERT_ID)).thenReturn(true);
-
-        int result = service.seedConcert(
-                CONCERT_ID, "Test", "Venue", 30,
-                new BigDecimal("100"), new BigDecimal("200"),
-                10, 20, 30,
-                "Hà Nội", "Test Artist", TicketStatus.ON_SALE);
-
-        assertThat(result).isZero();
-        verify(concertRepository, never()).saveAndFlush(any(Concert.class));
-        verify(seatZoneRepository, never()).saveAndFlush(any(SeatZone.class));
-        verify(seatRepository, never()).saveAll(anyList());
-        verify(redisReservationService, never()).initializeSeats(any(), anyList());
-    }
-
-    @Test
     void seedConcert_persistsAndInitializesRedis() {
-        when(concertRepository.existsById(CONCERT_ID)).thenReturn(false);
-        when(seatZoneRepository.saveAndFlush(any(SeatZone.class))).thenAnswer(inv -> inv.getArgument(0));
         when(seatRepository.saveAll(anyList())).thenAnswer(inv -> {
             List<Seat> seats = inv.getArgument(0);
             for (Seat s : seats) {
@@ -84,22 +70,25 @@ class ConcertSeederServiceTest {
         // 50 + 100 + 200 = 350 seats
         assertThat(result).isEqualTo(350);
 
-        // Concert persisted
+        // Concert persisted (production uses save() + flush(), not saveAndFlush())
         ArgumentCaptor<Concert> concertCaptor = ArgumentCaptor.forClass(Concert.class);
-        verify(concertRepository).saveAndFlush(concertCaptor.capture());
-        assertThat(concertCaptor.getValue().getId()).isEqualTo(CONCERT_ID);
-        assertThat(concertCaptor.getValue().getTitle()).isEqualTo("Test Concert");
-        assertThat(concertCaptor.getValue().getStatus().name()).isEqualTo("OPEN");
-        assertThat(concertCaptor.getValue().getCity()).isEqualTo("Sài Gòn");
-        assertThat(concertCaptor.getValue().getArtist()).isEqualTo("Test Artist");
-        assertThat(concertCaptor.getValue().getTicketStatus()).isEqualTo(TicketStatus.ON_SALE);
+        verify(concertRepository).save(concertCaptor.capture());
+        verify(concertRepository).flush();
+        Concert saved = concertCaptor.getValue();
+        assertThat(saved.getId()).isEqualTo(CONCERT_ID);
+        assertThat(saved.getTitle()).isEqualTo("Test Concert");
+        assertThat(saved.getStatus().name()).isEqualTo("OPEN");
+        assertThat(saved.getCity()).isEqualTo("Sài Gòn");
+        assertThat(saved.getArtist()).isEqualTo("Test Artist");
+        assertThat(saved.getTicketStatus()).isEqualTo(TicketStatus.ON_SALE);
 
-        // 3 zones saved
-        verify(seatZoneRepository, org.mockito.Mockito.times(3)).saveAndFlush(any(SeatZone.class));
+        // 3 zones saved via the standard save() method
+        verify(seatZoneRepository, org.mockito.Mockito.times(3)).save(any(SeatZone.class));
 
         // Seats saved
         ArgumentCaptor<List<Seat>> seatsCaptor = ArgumentCaptor.forClass(List.class);
         verify(seatRepository).saveAll(seatsCaptor.capture());
+        verify(seatRepository).flush();
         assertThat(seatsCaptor.getValue()).hasSize(350);
 
         // Redis initialized
@@ -107,38 +96,40 @@ class ConcertSeederServiceTest {
     }
 
     @Test
-    void seedConcert_handlesConcertPersistFailure() {
-        when(concertRepository.existsById(CONCERT_ID)).thenReturn(false);
+    void seedConcert_propagatesConcertPersistFailure() {
         doThrow(new RuntimeException("save failed"))
-                .when(concertRepository).saveAndFlush(any(Concert.class));
+                .when(concertRepository).save(any(Concert.class));
 
-        int result = service.seedConcert(
+        assertThatThrownBy(() -> service.seedConcert(
                 CONCERT_ID, "Test", "Venue", 30,
                 new BigDecimal("100"), new BigDecimal("200"),
                 10, 20, 30,
-                "Hà Nội", "Test Artist", TicketStatus.ON_SALE);
+                "Hà Nội", "Test Artist", TicketStatus.ON_SALE))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("save failed");
 
-        assertThat(result).isZero();
-        verify(seatZoneRepository, never()).saveAndFlush(any(SeatZone.class));
+        // Concert was attempted to be saved, then the exception aborted the rest
+        verify(concertRepository).save(any(Concert.class));
+        verify(seatZoneRepository, never()).save(any(SeatZone.class));
         verify(seatRepository, never()).saveAll(anyList());
         verify(redisReservationService, never()).initializeSeats(any(), anyList());
     }
 
     @Test
-    void seedConcert_handlesSeatSaveFailure() {
-        when(concertRepository.existsById(CONCERT_ID)).thenReturn(false);
-        when(seatZoneRepository.saveAndFlush(any(SeatZone.class))).thenAnswer(inv -> inv.getArgument(0));
-        doThrow(new RuntimeException("seat save failed"))
-                .when(seatRepository).saveAll(anyList());
+    void seedConcert_propagatesSeatSaveFailure() {
+        when(seatRepository.saveAll(anyList()))
+                .thenThrow(new RuntimeException("seat save failed"));
 
-        int result = service.seedConcert(
+        // Zone saves use the same mock so they don't throw
+        assertThatThrownBy(() -> service.seedConcert(
                 CONCERT_ID, "Test", "Venue", 30,
                 new BigDecimal("100"), new BigDecimal("200"),
                 10, 20, 30,
-                "Đà Nẵng", "Test Artist", TicketStatus.COMING_SOON);
+                "Đà Nẵng", "Test Artist", TicketStatus.COMING_SOON))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("seat save failed");
 
-        assertThat(result).isZero();
-        // No Redis init since seat save failed
+        // No Redis init since seat save failed and the exception propagated
         verify(redisReservationService, never()).initializeSeats(any(), anyList());
     }
 }
