@@ -5,6 +5,7 @@ import com.ticketrush.server.infrastructure.redis.RedisReservationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -13,15 +14,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Service responsible for seeding a single concert with its zones and seats.
- * Extracted to a separate Spring bean so that @Transactional works correctly
- * (the AOP proxy is engaged when called from a different bean).
- *
- * Uses repository.save() with manually-assigned UUIDs. This works because
- * each method invocation gets its own @Transactional context, and the entity
- * is freshly created (not attached to any prior persistence context).
- */
 @Service
 @Slf4j
 public class ConcertSeederService {
@@ -42,12 +34,7 @@ public class ConcertSeederService {
         this.redisReservationService = redisReservationService;
     }
 
-    /**
-     * Seed a single concert with 3 zones (VIP, Standard, Economy) and the requested
-     * number of seats per zone. Each call is its own transaction. Returns the number
-     * of seats actually persisted.
-     */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int seedConcert(
             UUID id,
             String title,
@@ -59,25 +46,17 @@ public class ConcertSeederService {
             int standardSeats,
             int economySeats) {
 
-        // 1. Concert entity
-        if (concertRepository.existsById(id)) {
-            log.info("Concert '{}' already exists, skipping", title);
-            return 0;
-        }
-        try {
-            Concert concert = Concert.builder()
-                    .id(id)
-                    .title(title)
-                    .description(title + " — seeded by DatabaseSeeder")
-                    .startTime(LocalDateTime.now().plusDays(daysFromNow))
-                    .venue(venue)
-                    .status(ConcertStatus.OPEN)
-                    .build();
-            concertRepository.saveAndFlush(concert);
-        } catch (Exception e) {
-            log.warn("Seed conflict on concert '{}': {}", title, e.getMessage());
-            return 0;
-        }
+
+        Concert concert = Concert.builder()
+                .id(id)
+                .title(title)
+                .description(title + " — seeded by DatabaseSeeder")
+                .startTime(LocalDateTime.now().plusDays(daysFromNow))
+                .venue(venue)
+                .status(ConcertStatus.OPEN)
+                .build();
+        concertRepository.save(concert);
+        concertRepository.flush();
 
         // 2. Zones: VIP = maxPrice, Standard = midpoint, Economy = minPrice
         BigDecimal standardPrice = minPrice.add(maxPrice)
@@ -111,45 +90,25 @@ public class ConcertSeederService {
                 .totalSeats(economySeats)
                 .build();
 
-        try {
-            seatZoneRepository.saveAndFlush(vipZone);
-        } catch (Exception e) {
-            log.warn("Seed conflict on VIP zone for '{}': {}", title, e.getMessage());
-        }
-        try {
-            seatZoneRepository.saveAndFlush(standardZone);
-        } catch (Exception e) {
-            log.warn("Seed conflict on Standard zone for '{}': {}", title, e.getMessage());
-        }
-        try {
-            seatZoneRepository.saveAndFlush(economyZone);
-        } catch (Exception e) {
-            log.warn("Seed conflict on Economy zone for '{}': {}", title, e.getMessage());
-        }
+        seatZoneRepository.save(vipZone);
+        seatZoneRepository.save(standardZone);
+        seatZoneRepository.save(economyZone);
 
         // 3. Seats
         List<Seat> seats = generateSeats(
                 vipZoneId, standardZoneId, economyZoneId,
                 vipSeats, standardSeats, economySeats);
 
-        try {
-            List<Seat> savedSeats = seatRepository.saveAll(seats);
-            seatRepository.flush();
+        List<Seat> savedSeats = seatRepository.saveAll(seats);
+        seatRepository.flush();
 
-            // 4. CRITICAL: Initialize Redis "available" set for this concert
-            List<UUID> seatIds = savedSeats.stream().map(Seat::getId).toList();
-            redisReservationService.initializeSeats(id, seatIds);
+        // 4. CRITICAL: Initialize Redis "available" set for this concert
+        List<UUID> seatIds = savedSeats.stream().map(Seat::getId).toList();
+        redisReservationService.initializeSeats(id, seatIds);
 
-            return savedSeats.size();
-        } catch (Exception e) {
-            log.warn("Seed conflict on seats for '{}': {}", title, e.getMessage());
-            return 0;
-        }
+        return savedSeats.size();
     }
 
-    /**
-     * Build the seat rows for the three zones. Seat numbers are prefixed by zone.
-     */
     private List<Seat> generateSeats(
             UUID vipZoneId,
             UUID standardZoneId,
@@ -163,6 +122,7 @@ public class ConcertSeederService {
         for (int i = 1; i <= vipCount; i++) {
             seats.add(Seat.builder()
                     .seatZoneId(vipZoneId)
+                    .id(UUID.randomUUID())
                     .seatNumber("VIP-" + i)
                     .status(SeatStatus.AVAILABLE)
                     .build());
@@ -170,6 +130,7 @@ public class ConcertSeederService {
         for (int i = 1; i <= standardCount; i++) {
             seats.add(Seat.builder()
                     .seatZoneId(standardZoneId)
+                    .id(UUID.randomUUID())
                     .seatNumber("STD-" + i)
                     .status(SeatStatus.AVAILABLE)
                     .build());
@@ -177,6 +138,7 @@ public class ConcertSeederService {
         for (int i = 1; i <= economyCount; i++) {
             seats.add(Seat.builder()
                     .seatZoneId(economyZoneId)
+                    .id(UUID.randomUUID())
                     .seatNumber("ECO-" + i)
                     .status(SeatStatus.AVAILABLE)
                     .build());

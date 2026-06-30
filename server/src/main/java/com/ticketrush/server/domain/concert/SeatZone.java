@@ -18,7 +18,6 @@ import java.util.UUID;
 public class SeatZone {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(name = "concert_id", nullable = false)

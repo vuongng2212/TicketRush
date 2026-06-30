@@ -19,7 +19,6 @@ import java.util.UUID;
 public class Seat {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(name = "seat_zone_id", nullable = false)
