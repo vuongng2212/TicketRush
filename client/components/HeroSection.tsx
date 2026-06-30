@@ -1,7 +1,8 @@
 'use client';
 
-import { motion, useMemo } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useReducedMotion } from 'framer-motion';
+import { useMemo } from 'react';
 import ELECTRIC_RUSH, { GRADIENTS } from '@/lib/design-tokens';
 import { ArrowRight, Zap } from 'lucide-react';
 
@@ -19,11 +20,17 @@ interface KineticHeadlineProps {
   splitByWord?: boolean;
 }
 
+// Simple deterministic pseudo-random for offset values (seed-based, avoids Math.random at render)
+function seededRandom(seed: number): number {
+  const x = Math.sin(seed * 9301 + 49297) * 49297;
+  return x - Math.floor(x);
+}
+
 // Pre-compute random offsets at module level to avoid purity issues
 const ELEMENT_RANDOM_OFFSETS = {
-  x: Math.random() * 120 - 60,
-  y: Math.random() * 120 - 60,
-  rotate: Math.random() * 360,
+  x: seededRandom(1) * 120 - 60,
+  y: seededRandom(2) * 120 - 60,
+  rotate: seededRandom(3) * 360,
 };
 const KineticHeadline = ({ text, splitByWord = false }: KineticHeadlineProps) => {
   const prefersReducedMotion = useReducedMotion();
@@ -262,12 +269,12 @@ export const HeroSection = ({
   const prefersReducedMotion = useReducedMotion();
 
 
-  // Pre-compute random particle positions to avoid purity errors
+  // Pre-compute particle positions with deterministic pseudo-random values
   const particles = useMemo(() => {
     return Array.from({ length: 5 }).map((_, i) => ({
       id: i,
-      left: Math.random() * 100,
-      top: Math.random() * 100,
+      left: seededRandom(i + 10) * 100,
+      top: seededRandom(i + 20) * 100,
       color: [ELECTRIC_RUSH.colors.electricBlue, ELECTRIC_RUSH.colors.hotMagenta, ELECTRIC_RUSH.colors.limeRush][i % 3],
     }));
   }, []);
@@ -409,9 +416,9 @@ export const HeroSection = ({
                 opacity: [0, 1, 0],
               }}
               transition={{
-                duration: 3 + i,
+                duration: 3 + particle.id,
                 repeat: Infinity,
-                delay: i * 0.5,
+                delay: particle.id * 0.5,
               }}
             />
           ))}

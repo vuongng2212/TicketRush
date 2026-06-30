@@ -6,12 +6,12 @@ import { useAuth } from '../context/AuthContext';
 import { createApolloClient } from '../lib/apollo-client';
 
 export function ApolloWrapper({ children }: { children: React.ReactNode }) {
-  const { token, loading } = useAuth();
+  const { loading } = useAuth();
 
   // Re-create Apollo Client when token changes so connectionParams (WS Link) will get updated token
   const client = useMemo(() => {
     return createApolloClient(() => localStorage.getItem('ticketrush_token'));
-  }, [token]);
+  }, []);
 
   if (loading) {
     return (

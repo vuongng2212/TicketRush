@@ -74,7 +74,6 @@ export const NeonPulseButton = forwardRef<HTMLButtonElement, NeonPulseButtonProp
       children,
       className = '',
       onClick,
-      ...props
     },
     ref
   ) => {
@@ -236,7 +235,6 @@ export const NeonPulseButton = forwardRef<HTMLButtonElement, NeonPulseButtonProp
         onClick={isDisabled ? undefined : onClick}
         aria-busy={isLoading}
         aria-disabled={isDisabled}
-        {...props}
       >
         {/* Shine effect on hover (primary variant only) */}
         {variant === 'primary' && !isDisabled && (

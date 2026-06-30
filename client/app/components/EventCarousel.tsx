@@ -1,6 +1,7 @@
 'use client';
 
 import { motion, useReducedMotion } from 'framer-motion';
+import Image from 'next/image';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { useState } from 'react';
 
@@ -106,7 +107,7 @@ export function EventCarousel({ events = [], onEventSelect }: EventCarouselProps
                     <div className={`absolute inset-0 bg-gradient-to-br ${GENRE_GRADIENTS[index % GENRE_GRADIENTS.length]} pointer-events-none`} />
                     {event.image && (
                       <div className="absolute inset-0 opacity-[0.08] pointer-events-none">
-                        <img src={event.image} alt="" className="w-full h-full object-cover" />
+                        <Image src={event.image} alt="" fill sizes="400px" className="object-cover" />
                       </div>
                     )}
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { motion, useReducedMotion } from 'framer-motion';
+import Image from 'next/image';
 import ELECTRIC_RUSH, { GRADIENTS } from '@/lib/design-tokens';
 import { Calendar, MapPin, Star, Ticket, Heart, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
@@ -212,10 +213,12 @@ export const EventCard = ({
           variants={imageVariants}
           whileHover="hover"
         >
-          <img
+          <Image
             src={event.imageUrl}
             alt={event.title}
-            className={`w-full h-full object-cover transition-opacity duration-300 ${
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className={`object-cover transition-opacity duration-300 ${
               imageLoaded ? 'opacity-100' : 'opacity-0'
             }`}
             onLoad={() => setImageLoaded(true)}

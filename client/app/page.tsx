@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { gql } from '@apollo/client';
 import { useQuery, useMutation, useSubscription } from '@apollo/client/react';
 import { useAuth } from './context/AuthContext';
@@ -9,7 +9,6 @@ import { motion } from 'framer-motion';
 import {
   EventDetail,
   CheckoutFlow,
-  Navigation,
   AlertManager,
 } from './components';
 import { EventCarousel } from '@/components/EventCarousel';
@@ -30,6 +29,33 @@ interface Seat {
   heldUntil?: string;
   zoneName?: string;
   price?: number;
+  zoneId?: string;
+  bookingId?: string;
+  expiresAt?: string;
+}
+
+interface SeatUpdate {
+  seatId: string;
+  status: string;
+  heldByUserId?: string;
+}
+
+interface LoginResult {
+  token: string;
+  user: {
+    id: string;
+    email: string;
+    roles: string[];
+  };
+}
+
+interface HoldSeatResult {
+  id: string;
+  expiresAt: string;
+}
+
+interface PaymentResult {
+  paymentReference: string;
 }
 
 interface Zone {
@@ -50,11 +76,9 @@ interface Concert {
   ticketsSold?: number;
   totalTickets?: number;
   status?: string;
+  minPrice?: number;
+  availableSeats?: number;
   zones?: Zone[];
-}
-
-interface ConcertDetail {
-  getConcertDetail?: Concert;
 }
 
 interface GraphQLData {
@@ -196,15 +220,15 @@ const CONFIRM_PAYMENT = gql`
   }
 `;
 
-// Cancel order mutation
-const CANCEL_ORDER = gql`
-  mutation CancelOrder($orderId: ID!) {
-    cancelOrder(orderId: $orderId) {
-      id
-      status
-    }
-  }
-`;
+// Cancel order mutation (unused - reserved for future implementation)
+// const CANCEL_ORDER = gql`
+//   mutation CancelOrder($orderId: ID!) {
+//     cancelOrder(orderId: $orderId) {
+//       id
+//       status
+//     }
+//   }
+// `;
 
 // Mock Concert ID for testing
 // Must match seeded DB concert UUID: 00000000-0000-0000-0000-000000000001
@@ -325,8 +349,8 @@ export default function Home() {
 
   // Selected seat state
   const [selectedSeat, setSelectedSeat] = useState<Seat | null>(null);
-  const [localSeatsMap, setLocalSeatsMap] = useState<Record<string, Seat>>({});
-  const [currentZoneId, setCurrentZoneId] = useState<string | null>(null);
+  // localSeatsMap is now computed from useMemo, no longer needs state
+  // const [currentZoneId, setCurrentZoneId] = useState<string | null>(null); // Unused
 
   // Payment flow state
   const [paymentStep, setPaymentStep] = useState(false);
@@ -343,63 +367,71 @@ export default function Home() {
   });
 
   // Fetch list of concerts for the carousel (replaces MOCK_EVENTS)
-  const { data: concertsData, loading: concertsLoading } = useQuery(GET_CONCERTS, {
+  const { data: concertsData } = useQuery(GET_CONCERTS, {
     variables: { limit: 8 },
     skip: !token,
   });
 
   // Transform ConcertSummary → EventCard event format
   const liveEvents = useMemo(() => {
-    const concerts = (concertsData as GraphQLData)?.getFeaturedConcerts || [];
+    const concerts = ((concertsData as GraphQLData)?.getFeaturedConcerts || []) as Concert[];
     return concerts.map((c: Concert) => ({
       id: c.id,
-      title: c.title,
-      venue: c.venue,
-      date: c.startTime,
-      price: c.minPrice,
+      title: c.title || '',
+      venue: c.venue || 'TBD',
+      date: c.startTime || 'TBA',
+      price: c.minPrice || 0,
       rating: 4.5 + hashString(c.id) * 0.5, // Simulated — not in ConcertSummary yet
       reviewsCount: Math.floor(500 + hashString(c.id + 'reviews') * 5000), // Simulated
-      ticketsAvailable: c.availableSeats,
+      ticketsAvailable: c.availableSeats || 0,
       imageUrl: c.imageUrl || `https://picsum.photos/seed/${c.id}/800/600`,
       category: 'concert' as const,
     }));
   }, [concertsData]);
 
-  const [holdSeatMutation, { loading: holdingLoading }] = useMutation(HOLD_SEAT);
+  const [holdSeatMutation] = useMutation(HOLD_SEAT);
   const [registerMutation, { loading: registerLoading }] = useMutation(REGISTER);
   const [loginMutation, { loading: loginLoading }] = useMutation(LOGIN);
   const [confirmPaymentMutation, { loading: paymentLoading }] = useMutation(CONFIRM_PAYMENT);
-  const [cancelOrderMutation] = useMutation(CANCEL_ORDER);
+  // const [cancelOrderMutation] = useMutation(CANCEL_ORDER); // Unused
 
   const { data: subscriptionData } = useSubscription(SEAT_STATUS_UPDATED, {
     variables: { concertId: MOCK_CONCERT_ID },
     skip: !token,
   });
 
-  // Initialize local seats map from GraphQL data
-  useEffect(() => {
-    const detail = (data as GraphQLData)?.getConcertDetail;
-    if (detail?.zones) {
-      const seatsMap: Record<string, Seat> = {};
-      detail.zones.forEach((zone: Zone) => {
+  // Extract concert detail for use in JSX
+  const concertDetail = (data as GraphQLData)?.getConcertDetail as Concert | undefined;
+
+  // Compute base seats map from GraphQL data
+  const baseSeatsMap = useMemo(() => {
+    const seatsMap: Record<string, Seat> = {};
+    if (concertDetail?.zones) {
+      concertDetail.zones.forEach((zone: Zone) => {
         zone.seats.forEach((seat: Seat) => {
           seatsMap[seat.id] = { ...seat, zoneId: zone.id, zoneName: zone.name, price: zone.price };
         });
       });
-      setLocalSeatsMap(seatsMap);
     }
-  }, [data]);
+    return seatsMap;
+  }, [concertDetail]);
 
-  // Handle real-time seat updates
-  useEffect(() => {
-    const update = (subscriptionData as GraphQLData)?.seatStatusUpdated;
-    if (update) {
-      setLocalSeatsMap((prev) => ({
-        ...prev,
-        [update.seatId]: { ...prev[update.seatId], status: update.status, heldByUserId: update.heldByUserId },
-      }));
+  // Derive seat updates directly from subscription data (no useEffect needed)
+  const localSeatsMap = useMemo(() => {
+    const merged = { ...baseSeatsMap };
+    
+    // Apply real-time subscription update if present
+    const update = (subscriptionData as GraphQLData)?.seatStatusUpdated as SeatUpdate | undefined;
+    if (update && merged[update.seatId]) {
+      merged[update.seatId] = {
+        ...merged[update.seatId],
+        status: update.status,
+        heldByUserId: update.heldByUserId,
+      };
     }
-  }, [subscriptionData]);
+    
+    return merged;
+  }, [baseSeatsMap, subscriptionData]);
 
   // Alert management
   const addAlert = (type: 'success' | 'error' | 'info', message: string) => {
@@ -424,38 +456,31 @@ export default function Home() {
         }
       } else {
         const { data } = await loginMutation({ variables: { email, password } });
-        const result = (data as GraphQLData)?.login;
+        const result = (data as GraphQLData)?.login as LoginResult | undefined;
         if (result) {
           login(result.token, result.user);
           setAuthSuccess('Login successful!');
         }
       }
     } catch (err: unknown) {
-      setAuthError(err.message || 'Authentication failed');
+      setAuthError((err as Error).message || 'Authentication failed');
     }
   };
 
   // Seat booking handlers
-  const handleHoldSeat = async (seatId: string, zoneId: string) => {
+  const handleHoldSeat = async (seatId: string) => {
     try {
       const { data } = await holdSeatMutation({ variables: { seatId } });
-      const result = (data as GraphQLData)?.holdSeat;
+      const result = (data as GraphQLData)?.holdSeat as HoldSeatResult | undefined;
       if (result) {
         setSelectedSeat({ ...localSeatsMap[seatId], bookingId: result.id, expiresAt: result.expiresAt });
-        setCurrentZoneId(zoneId);
         addAlert('success', 'Seat held successfully!');
       }
     } catch (err: unknown) {
-      addAlert('error', err.message || 'Failed to hold seat');
+      addAlert('error', (err as Error).message || 'Failed to hold seat');
     }
   };
 
-  const handleProceedToPayment = () => {
-    if (selectedSeat) {
-      setPaymentStep(true);
-      addAlert('info', 'Proceeding to payment...');
-    }
-  };
 
   // Real payment handler — calls confirmPayment mutation
   const handleSimulatePayment = async () => {
@@ -472,29 +497,16 @@ export default function Home() {
         },
       });
 
-      const paymentResult = (result as GraphQLData)?.confirmPayment;
+      const paymentResult = (result as GraphQLData)?.confirmPayment as PaymentResult | undefined;
       if (paymentResult) {
         setPaymentSuccess(true);
         addAlert('success', `Payment successful! Ref: ${paymentResult.paymentReference}`);
       }
     } catch (err: unknown) {
-      addAlert('error', err.message || 'Payment failed. Please try again.');
+      addAlert('error', (err as Error).message || 'Payment failed. Please try again.');
     }
   };
 
-  const handleCancelOrder = async () => {
-    if (!selectedSeat?.bookingId) return;
-    try {
-      await cancelOrderMutation({ variables: { orderId: selectedSeat.bookingId } });
-      addAlert('info', 'Order cancelled. Seat released.');
-      setSelectedSeat(null);
-      setPaymentStep(false);
-      setSelectedPaymentMethod(null);
-      refetch();
-    } catch (err: unknown) {
-      addAlert('error', err.message || 'Failed to cancel order');
-    }
-  };
 
   const handleReset = () => {
     setSelectedSeat(null);
@@ -652,15 +664,15 @@ export default function Home() {
           </div>
         )}
 
-        {!paymentSuccess && !paymentStep && data && (
+        {!paymentSuccess && !paymentStep && !!data && (
           <EventDetail
-            eventTitle={(data as GraphQLData)?.getConcertDetail?.title || 'Live Concert'}
-            venue={(data as GraphQLData)?.getConcertDetail?.venue}
-            date={(data as GraphQLData)?.getConcertDetail?.startTime}
+            eventTitle={concertDetail?.title || 'Live Concert'}
+            venue={concertDetail?.venue}
+            date={concertDetail?.startTime}
             seats={Object.values(localSeatsMap)}
             selectedSeat={selectedSeat}
             currentUserId={user?.id}
-            onSeatSelect={(seatId: string) => handleHoldSeat(seatId, '')}
+            onSeatSelect={(seatId: string) => handleHoldSeat(seatId)}
             onSeatUnselect={() => setSelectedSeat(null)}
           />
         )}
@@ -668,7 +680,7 @@ export default function Home() {
         {paymentStep && selectedSeat && (
           <CheckoutFlow
             selectedSeat={selectedSeat}
-            orderTotal={selectedSeat.price}
+            orderTotal={selectedSeat.price ?? 0}
             onPaymentMethodSelect={setSelectedPaymentMethod}
             onConfirmPayment={handleSimulatePayment}
             isLoading={paymentLoading}

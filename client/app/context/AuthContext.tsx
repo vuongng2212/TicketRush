@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
 interface User {
   id: string;
@@ -19,27 +19,29 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [token, setToken] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Load credentials from local storage
-    const storedToken = localStorage.getItem('ticketrush_token');
+  // Use lazy initialization to avoid setState in useEffect
+  const [token, setToken] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('ticketrush_token');
+  });
+  
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window === 'undefined') return null;
     const storedUser = localStorage.getItem('ticketrush_user');
-
-    if (storedToken && storedUser) {
-      setToken(storedToken);
+    if (storedUser) {
       try {
-        setUser(JSON.parse(storedUser));
+        return JSON.parse(storedUser);
       } catch {
         // Clear corrupt storage
         localStorage.removeItem('ticketrush_token');
         localStorage.removeItem('ticketrush_user');
+        return null;
       }
     }
-    setLoading(false);
-  }, []);
+    return null;
+  });
+  
+  const [loading] = useState(false); // Always false with lazy initialization
 
   const login = (newToken: string, newUser: User) => {
     localStorage.setItem('ticketrush_token', newToken);

@@ -1,6 +1,6 @@
 'use client';
 
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion, useScroll, useTransform, useReducedMotion } from 'framer-motion';
 import ELECTRIC_RUSH, { GRADIENTS } from '@/lib/design-tokens';
 import { Menu, X, Zap, User, Ticket, Heart, LogOut, Settings } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -31,6 +31,7 @@ interface NavLinkProps {
 // ============================================================
 
 const NavLink = ({ href, children, icon, onClick }: NavLinkProps) => {
+  const prefersReducedMotion = useReducedMotion();
 
   return (
     <motion.a
@@ -85,6 +86,7 @@ interface ProfileDropdownProps {
 
 const ProfileDropdown = ({ user, onLogout }: ProfileDropdownProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -238,6 +240,7 @@ interface DropdownItemProps {
 }
 
 const DropdownItem = ({ icon, label, onClick, variant = 'default' }: DropdownItemProps) => {
+  const prefersReducedMotion = useReducedMotion();
 
   const colors = {
     default: {

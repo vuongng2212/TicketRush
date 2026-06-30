@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from 'framer-motion';
 import { Play, ArrowUpRight } from 'lucide-react';
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 
 interface Event {
@@ -23,11 +24,10 @@ const SCRAMBLE_CHARS = '!<>-_\\/[]{}—=+*^?#________';
 
 function useScrambleText(finalText: string, delay = 0) {
   const [display, setDisplay] = useState('');
-  const reduce = useReducedMotion();
+  const shouldReduce = useReducedMotion();
 
   useEffect(() => {
-    if (reduce) {
-      setDisplay(finalText);
+    if (shouldReduce) {
       return;
     }
     let frame = 0;
@@ -57,7 +57,7 @@ function useScrambleText(finalText: string, delay = 0) {
       return () => clearInterval(interval);
     }, delay);
     return () => clearTimeout(timeout);
-  }, [finalText, delay, reduce]);
+  }, [finalText, delay, shouldReduce]);
 
   return display;
 }
@@ -197,10 +197,13 @@ export function HeroSection({ events = [], onEventSelect }: HeroSectionProps) {
             >
               {/* Real image from picsum */}
               <div className="absolute inset-0 bg-dark-bg">
-                <img
+                <Image
                   src="https://picsum.photos/seed/concert-hero-electric/800/1000"
                   alt="Concert crowd"
-                  className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity duration-700"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  className="object-cover opacity-60 group-hover:opacity-80 transition-opacity duration-700"
+                  priority
                 />
               </div>
 

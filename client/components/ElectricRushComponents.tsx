@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { useReducedMotion } from 'framer-motion';
 import ELECTRIC_RUSH, { GRADIENTS } from '@/lib/design-tokens';
+import Image from 'next/image';
 
 /**
  * TicketRush - Electric Rush Component Examples
@@ -27,7 +28,7 @@ const letterVariants = {
     opacity: 1,
     rotate: 0,
     transition: {
-      type: 'spring',
+      type: 'spring' as const,
       stiffness: 300,
       damping: 20,
     },
@@ -241,11 +242,7 @@ export const EventCard = ({
       <div className="relative z-10 p-6 space-y-4">
         {/* Event Image */}
         <div className="relative w-full h-48 rounded-lg overflow-hidden">
-          <img
-            src={image}
-            alt={title}
-            className="w-full h-full object-cover opacity-80"
-          />
+          <Image src={image} alt={title} fill sizes="300px" className="w-full h-full object-cover opacity-80" />
           <div className="absolute inset-0 bg-gradient-to-t from-dark-bg via-transparent to-transparent" />
 
           {/* Trending Badge */}
