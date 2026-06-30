@@ -1,261 +1,169 @@
 /**
- * TicketRush Electric Rush Design Tokens
- * Color palette, typography, spacing, and animation definitions
+ * TicketRush Editorial Music Discovery Design Tokens
+ * Anti-AI: no glow, no rounded corners, no gradients, no motion
+ * Inspired by Dice.fm + Boiler Room + Primavera Sound
  */
 
-export const ELECTRIC_RUSH = {
+export const EDITORIAL = {
   // === COLOR PALETTE ===
   colors: {
-    // Primary Brand Colors
-    electricBlue: '#00d4ff',    // Neon cyan - main accent
-    hotMagenta: '#ff2d7b',      // Hot pink - CTAs, urgency
-    limeRush: '#39ff14',        // Neon lime - success, "Buy Now"
-    acidYellow: '#eaff00',      // Bright yellow - warnings, highlights
-    electricPurple: '#c91dff',  // Neon purple - secondary accent
+    // Backgrounds
+    ink: '#0A0A0A',         // Primary background (near-black)
+    inkAlt: '#111111',      // Alt surface
+    inkHover: '#1A1A1A',    // Hover state surface
 
-    // Background Colors
-    offBlack: '#0a0e27',        // Primary background (cooler than pure black)
-    surfaceDark: '#1a1f3a',     // Cards, surfaces (dark blue-gray)
-    surfaceLight: '#252d4a',    // Elevated surfaces (hover states)
+    // Text
+    paper: '#FFFFFF',       // Primary text
+    muted: '#999999',       // Secondary text
+    hairline: '#333333',    // 1px dividers
 
-    // Text Colors
-    textPrimary: '#ffffff',     // Main text (white)
-    textSecondary: '#b0b5c1',   // Supporting text (cool gray)
-    textTertiary: '#7a7f94',    // Disabled, secondary (darker gray)
-
-    // Utility Colors
-    error: '#ff4757',           // Error states
-    warning: '#eaff00',         // Warnings (same as acidYellow)
-    success: '#39ff14',         // Success (same as limeRush)
-
-    // Transparent/Glow variants
-    surfaceGlow: 'rgba(0, 212, 255, 0.1)',      // Cyan tint background
-    glowCyan: 'rgba(0, 212, 255, 0.3)',         // Cyan glow
-    glowMagenta: 'rgba(255, 45, 123, 0.3)',     // Magenta glow
-    glowLime: 'rgba(57, 255, 20, 0.3)',         // Lime glow
+    // Accent
+    coral: '#F24726',       // Hot coral — primary accent
+    coralHover: '#D63B1F',  // Coral hover state
   },
 
   // === TYPOGRAPHY ===
   typography: {
-    // Font Families (use these for fontFamily CSS property)
-    display: "'Space Grotesk', sans-serif",     // Headlines, kinetic text
-    body: "'Inter', sans-serif",                // Body text, UI
-    mono: "'Inter Mono', monospace",            // Metadata, prices, code
+    // Font families
+    display: "'Bebas Neue', 'Archivo Black', sans-serif",
+    body: "'Be Vietnam Pro', sans-serif",
+    label: "'Archivo Narrow', 'Be Vietnam Pro', sans-serif",
+    mono: "'JetBrains Mono', 'Space Mono', monospace",
 
-    // Text Style Sizes (use these for reference)
-    h1: { size: '64px', weight: 700, lineHeight: '1.2' },    // Hero headline
-    h2: { size: '42px', weight: 600, lineHeight: '1.25' },   // Section header
-    h3: { size: '28px', weight: 600, lineHeight: '1.3' },    // Card title
-    bodyLarge: { size: '20px', weight: 400, lineHeight: '1.6' },
-    bodyText: { size: '16px', weight: 400, lineHeight: '1.5' },
-    bodySmall: { size: '14px', weight: 400, lineHeight: '1.5' },
-    caption: { size: '12px', weight: 500, lineHeight: '1.4' },
-    label: { size: '12px', weight: 600, lineHeight: '1.4' },
+    // Editorial scale (lowercase keys avoid duplicate with font families)
+    hero: { size: '200px', weight: 400, lineHeight: '0.9' },     // Hero H1
+    section: { size: '80px', weight: 400, lineHeight: '0.95' },  // Section headers
+    h2: { size: '48px', weight: 400, lineHeight: '1.0' },        // Display H2
+    title: { size: '24px', weight: 500, lineHeight: '1.2' },     // Event title
+    bodyText: { size: '16px', weight: 400, lineHeight: '1.5' },  // Body
+    small: { size: '14px', weight: 400, lineHeight: '1.4' },     // Small
+    labelText: { size: '12px', weight: 600, lineHeight: '1.3' }, // Labels (uppercase)
+    date: { size: '16px', weight: 400, lineHeight: '1.2' },      // Event date
   },
 
   // === SPACING ===
   spacing: {
     xs: '4px',
     sm: '8px',
-    md: '12px',
-    lg: '16px',
-    xl: '24px',
-    xxl: '32px',
-    xxxl: '48px',
+    md: '16px',
+    lg: '24px',
+    xl: '48px',
+    xxl: '80px',
+    xxxl: '120px',
   },
 
-  // === BORDER RADIUS ===
+  // === BORDERS ===
+  // Editorial = 0px corners everywhere (anti-AI)
   borderRadius: {
-    sm: '4px',
-    md: '8px',
-    lg: '12px',
-    xl: '16px',
-    full: '9999px',
+    none: '0',
   },
 
-  // === SHADOWS ===
-  shadows: {
-    sm: '0 2px 4px rgba(0, 0, 0, 0.1)',
-    md: '0 4px 12px rgba(0, 0, 0, 0.15)',
-    lg: '0 8px 24px rgba(0, 0, 0, 0.2)',
-    glow_cyan: '0 0 20px rgba(0, 212, 255, 0.5)',
-    glow_magenta: '0 0 20px rgba(255, 45, 123, 0.5)',
-    glow_combined: '0 0 20px rgba(0, 212, 255, 0.5), 0 0 40px rgba(255, 45, 123, 0.3)',
+  borderWidth: {
+    DEFAULT: '1px',
+    hairline: '1px',
   },
 
-  // === ANIMATIONS ===
-  spring: {
-    kinetic: { type: 'spring' as const, stiffness: 300, damping: 20 },
-    smooth: { type: 'spring' as const, stiffness: 200, damping: 25 },
-    bouncy: { type: 'spring' as const, stiffness: 400, damping: 15 },
-  },
+  // === NO SHADOWS ===
+  // Editorial has zero box-shadows, zero glows, zero drop shadows
+  shadows: {},
 
-  // Transition timings
+  // === NO ANIMATIONS ===
+  // Editorial is instant — no transitions, no springs, no easing
+  spring: {},
   durations: {
-    fast: '150ms',
-    normal: '300ms',
-    slow: '500ms',
-    verySlow: '800ms',
+    instant: '0ms',
   },
-
-  // Easing functions
   easing: {
-    easeIn: 'cubic-bezier(0.4, 0, 1, 1)',
-    easeOut: 'cubic-bezier(0, 0, 0.2, 1)',
-    easeInOut: 'cubic-bezier(0.4, 0, 0.2, 1)',
-    elastic: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+    none: 'linear',
   },
 
   // === BREAKPOINTS ===
   breakpoints: {
-    mobile: '320px',
+    mobile: '375px',
     tablet: '768px',
     desktop: '1024px',
     wide: '1440px',
   },
 
-  // === Z-INDEX LAYERS ===
+  // === TIME BUCKETS (Vietnamese) ===
+  // Used by TimeBucket component for Editorial UI
+  timeBuckets: {
+    TONIGHT: 'TỐI NAY',
+    WEEKEND: 'CUỐI TUẦN',
+    ON_SALE: 'ĐANG MỞ BÁN',
+  },
+
+  // === CITIES (Vietnamese) ===
+  cities: ['Hà Nội', 'Sài Gòn', 'Đà Nẵng'],
+
+  // === Z-INDEX ===
   zIndex: {
     base: 0,
-    dropdown: 100,
-    sticky: 200,
-    fixed: 300,
-    modal: 400,
-    tooltip: 500,
-    notification: 600,
+    nav: 100,
+    overlay: 200,
+    modal: 300,
   },
 } as const;
-
-// === GRADIENT DEFINITIONS ===
-export const GRADIENTS = {
-  // Button gradients
-  buttonPrimary: 'linear-gradient(135deg, #39ff14 0%, #00d4ff 100%)',
-  buttonHover: 'linear-gradient(135deg, #39ff14 0%, #00d4ff 50%, #ff2d7b 100%)',
-
-  // Background gradients
-  heroMesh: 'linear-gradient(45deg, #0a0e27 0%, #1a1f3a 50%, #0a0e27 100%)',
-  heroPulse: 'conic-gradient(from 0deg, #00d4ff, #ff2d7b, #c91dff, #00d4ff)',
-  cardBorder: 'linear-gradient(135deg, #00d4ff, #ff2d7b, #39ff14)',
-
-  // Text gradients
-  textElectric: 'linear-gradient(90deg, #00d4ff 0%, #ff2d7b 100%)',
-  textRainbow: 'linear-gradient(90deg, #00d4ff, #c91dff, #ff2d7b, #39ff14)',
-} as const;
-
-// === ANIMATION KEYFRAMES ===
-export const KEYFRAMES = `
-  @keyframes shine {
-    0% {
-      left: -100%;
-    }
-    100% {
-      left: 100%;
-    }
-  }
-
-  @keyframes pulse-glow {
-    0%, 100% {
-      box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
-    }
-    50% {
-      box-shadow: 0 0 40px rgba(0, 212, 255, 0.8);
-    }
-  }
-
-  @keyframes gradient-mesh {
-    0% {
-      background-position: 0% 50%;
-    }
-    50% {
-      background-position: 100% 50%;
-    }
-    100% {
-      background-position: 0% 50%;
-    }
-  }
-
-  @keyframes float {
-    0%, 100% {
-      transform: translateY(0px);
-    }
-    50% {
-      transform: translateY(-20px);
-    }
-  }
-
-  @keyframes sweep {
-    0% {
-      left: -100%;
-    }
-    100% {
-      left: 100%;
-    }
-  }
-
-  @keyframes ripple {
-    0% {
-      transform: scale(0);
-      opacity: 1;
-    }
-    100% {
-      transform: scale(4);
-      opacity: 0;
-    }
-  }
-`;
 
 // === TAILWIND CONFIG EXTENSION ===
 export const tailwindConfig = {
   theme: {
     extend: {
       colors: {
-        'electric': {
-          'blue': ELECTRIC_RUSH.colors.electricBlue,
-          'magenta': ELECTRIC_RUSH.colors.hotMagenta,
-          'lime': ELECTRIC_RUSH.colors.limeRush,
-          'yellow': ELECTRIC_RUSH.colors.acidYellow,
-          'purple': ELECTRIC_RUSH.colors.electricPurple,
-        },
-        'dark': {
-          'bg': ELECTRIC_RUSH.colors.offBlack,
-          'surface': ELECTRIC_RUSH.colors.surfaceDark,
-          'surface-light': ELECTRIC_RUSH.colors.surfaceLight,
-        },
+        ink: EDITORIAL.colors.ink,
+        'ink-2': EDITORIAL.colors.inkAlt,
+        paper: EDITORIAL.colors.paper,
+        coral: EDITORIAL.colors.coral,
+        hairline: EDITORIAL.colors.hairline,
+        muted: EDITORIAL.colors.muted,
       },
       fontFamily: {
-        display: ELECTRIC_RUSH.typography.display,
-        mono: ELECTRIC_RUSH.typography.mono,
+        display: EDITORIAL.typography.display,
+        body: EDITORIAL.typography.body,
+        label: EDITORIAL.typography.label,
+        mono: EDITORIAL.typography.mono,
       },
-      spacing: ELECTRIC_RUSH.spacing,
-      borderRadius: ELECTRIC_RUSH.borderRadius,
-      boxShadow: ELECTRIC_RUSH.shadows,
-      animation: {
-        'shine': 'shine 3s infinite',
-        'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
-        'float': 'float 4s ease-in-out infinite',
+      borderRadius: {
+        none: '0',
+        DEFAULT: '0',
       },
     },
   },
 };
 
 // === UTILITY FUNCTIONS ===
-export const getColorWithOpacity = (color: string, opacity: number): string => {
-  // Convert hex to rgba with custom opacity
-  const hex = color.replace('#', '');
-  const r = parseInt(hex.substring(0, 2), 16);
-  const g = parseInt(hex.substring(2, 4), 16);
-  const b = parseInt(hex.substring(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+export const formatVND = (amount: number): string => {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(amount);
 };
 
-export const getContrastingText = (backgroundColor: string): string => {
-  // Simple contrast detection
-  const hex = backgroundColor.replace('#', '');
-  const r = parseInt(hex.substring(0, 2), 16);
-  const g = parseInt(hex.substring(2, 4), 16);
-  const b = parseInt(hex.substring(4, 6), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5 ? ELECTRIC_RUSH.colors.offBlack : ELECTRIC_RUSH.colors.textPrimary;
+export const formatDateBucket = (startTime: string): 'TONIGHT' | 'WEEKEND' | 'ON_SALE' => {
+  const date = new Date(startTime);
+  const now = new Date();
+  const hoursUntil = (date.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+  if (hoursUntil >= 0 && hoursUntil <= 24) return 'TONIGHT';
+  if (date.getDay() === 0 || date.getDay() === 6) return 'WEEKEND';
+  return 'ON_SALE';
 };
 
-export default ELECTRIC_RUSH;
+export const formatTime = (iso: string): string => {
+  const d = new Date(iso);
+  return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+};
+
+export const formatDayOfWeek = (iso: string): string => {
+  const d = new Date(iso);
+  const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+  return days[d.getDay()];
+};
+
+export const formatShortDate = (iso: string): string => {
+  const d = new Date(iso);
+  return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+};
+
+export default EDITORIAL;

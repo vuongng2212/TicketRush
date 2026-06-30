@@ -53,7 +53,8 @@ class ConcertSeederServiceTest {
         int result = service.seedConcert(
                 CONCERT_ID, "Test", "Venue", 30,
                 new BigDecimal("100"), new BigDecimal("200"),
-                10, 20, 30);
+                10, 20, 30,
+                "Hà Nội", "Test Artist", TicketStatus.ON_SALE);
 
         assertThat(result).isZero();
         verify(concertRepository, never()).saveAndFlush(any(Concert.class));
@@ -77,7 +78,8 @@ class ConcertSeederServiceTest {
         int result = service.seedConcert(
                 CONCERT_ID, "Test Concert", "Test Venue", 30,
                 new BigDecimal("100000"), new BigDecimal("500000"),
-                50, 100, 200);
+                50, 100, 200,
+                "Sài Gòn", "Test Artist", TicketStatus.ON_SALE);
 
         // 50 + 100 + 200 = 350 seats
         assertThat(result).isEqualTo(350);
@@ -88,6 +90,9 @@ class ConcertSeederServiceTest {
         assertThat(concertCaptor.getValue().getId()).isEqualTo(CONCERT_ID);
         assertThat(concertCaptor.getValue().getTitle()).isEqualTo("Test Concert");
         assertThat(concertCaptor.getValue().getStatus().name()).isEqualTo("OPEN");
+        assertThat(concertCaptor.getValue().getCity()).isEqualTo("Sài Gòn");
+        assertThat(concertCaptor.getValue().getArtist()).isEqualTo("Test Artist");
+        assertThat(concertCaptor.getValue().getTicketStatus()).isEqualTo(TicketStatus.ON_SALE);
 
         // 3 zones saved
         verify(seatZoneRepository, org.mockito.Mockito.times(3)).saveAndFlush(any(SeatZone.class));
@@ -110,7 +115,8 @@ class ConcertSeederServiceTest {
         int result = service.seedConcert(
                 CONCERT_ID, "Test", "Venue", 30,
                 new BigDecimal("100"), new BigDecimal("200"),
-                10, 20, 30);
+                10, 20, 30,
+                "Hà Nội", "Test Artist", TicketStatus.ON_SALE);
 
         assertThat(result).isZero();
         verify(seatZoneRepository, never()).saveAndFlush(any(SeatZone.class));
@@ -128,7 +134,8 @@ class ConcertSeederServiceTest {
         int result = service.seedConcert(
                 CONCERT_ID, "Test", "Venue", 30,
                 new BigDecimal("100"), new BigDecimal("200"),
-                10, 20, 30);
+                10, 20, 30,
+                "Đà Nẵng", "Test Artist", TicketStatus.COMING_SOON);
 
         assertThat(result).isZero();
         // No Redis init since seat save failed

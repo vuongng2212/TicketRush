@@ -159,6 +159,9 @@ public class ConcertGraphQLController {
                 .maxPrice(maxPrice)
                 .zoneCount(zoneCount)
                 .imageUrl(imageUrl)
+                .city(concert.getCity())
+                .artist(concert.getArtist())
+                .ticketStatus(concert.getTicketStatus())
                 .build();
     }
 

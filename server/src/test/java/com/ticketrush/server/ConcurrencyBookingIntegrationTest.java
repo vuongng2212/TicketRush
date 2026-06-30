@@ -75,6 +75,9 @@ public class ConcurrencyBookingIntegrationTest {
                 .venue("My Dinh Stadium")
                 .startTime(LocalDateTime.now().plusDays(10))
                 .status(ConcertStatus.OPEN)
+                .city("Hà Nội")
+                .artist("BLACKPINK")
+                .ticketStatus(TicketStatus.ON_SALE)
                 .build();
         concert = concertRepository.save(concert);
 

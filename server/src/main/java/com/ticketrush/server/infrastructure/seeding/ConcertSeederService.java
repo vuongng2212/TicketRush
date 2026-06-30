@@ -44,7 +44,10 @@ public class ConcertSeederService {
             BigDecimal maxPrice,
             int vipSeats,
             int standardSeats,
-            int economySeats) {
+            int economySeats,
+            String city,
+            String artist,
+            TicketStatus ticketStatus) {
 
 
         Concert concert = Concert.builder()
@@ -54,6 +57,9 @@ public class ConcertSeederService {
                 .startTime(LocalDateTime.now().plusDays(daysFromNow))
                 .venue(venue)
                 .status(ConcertStatus.OPEN)
+                .city(city)
+                .artist(artist)
+                .ticketStatus(ticketStatus)
                 .build();
         concertRepository.save(concert);
         concertRepository.flush();

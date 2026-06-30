@@ -35,6 +35,19 @@ public class Concert {
     @Column(nullable = false)
     private ConcertStatus status;
 
+    /** City where the concert takes place (e.g. "Hà Nội", "Sài Gòn", "Đà Nẵng"). */
+    @Column(nullable = false)
+    private String city;
+
+    /** Headline artist / performer for the Editorial Music Discovery card. */
+    @Column(nullable = false)
+    private String artist;
+
+    /** Sales-state surfaced to the buyer (ON_SALE, SOLD_OUT, COMING_SOON). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ticket_status", nullable = false)
+    private TicketStatus ticketStatus;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
