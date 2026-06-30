@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { gql } from '@apollo/client';
 import { useQuery, useMutation, useSubscription } from '@apollo/client/react';
 import { useAuth } from './context/AuthContext';
-import { Ticket, RefreshCw, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { AlertCircle, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import {
   EventDetail,
