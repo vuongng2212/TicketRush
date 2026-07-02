@@ -21,20 +21,9 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
         """)
     List<Ticket> findByUserId(@Param("userId") UUID userId);
 
-    // Fixed: schema uses raw UUID FKs (no JPA relations), so we join via subqueries
-    // against the Seat, SeatZone, Concert tables using the FK columns directly.
-    @Query(value = """
-        SELECT new com.ticketrush.server.domain.order.MyTicketDetail(
-            t.id, t.ticketCode,
-            c.title, c.venue,
-            CAST(c.startTime AS string),
-            sz.name, s.seatNumber, sz.price, o.status, o.id)
-        FROM Ticket t, Order o, Seat s, SeatZone sz, Concert c
-        WHERE t.orderId = o.id
-          AND t.seatId = s.id
-          AND s.seatZoneId = sz.id
-          AND sz.concertId = c.id
-          AND o.id = :orderId
-        """)
-    List<MyTicketDetail> getTicketDetailsByOrderId(@Param("orderId") UUID orderId);
+    // Schema uses raw UUID FKs (no JPA relations). JPA constructor expression
+    // doesn't support cross-entity joins cleanly, so we look up the joined fields
+    // in MyOrdersGraphQLController after fetching tickets. Keeping a simple
+    // findByOrderId-style query here is enough.
+    List<Ticket> findByOrderIdOrderByCreatedAtAsc(UUID orderId);
 }

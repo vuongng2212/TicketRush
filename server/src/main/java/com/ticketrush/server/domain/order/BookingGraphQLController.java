@@ -93,15 +93,35 @@ public class BookingGraphQLController {
         String email = authentication.getName();
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Authenticated user not found in database"));
-        
+
         List<Order> orders = orderRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
         List<MyTicketDetail> allTickets = new ArrayList<>();
-        
+
         for (Order order : orders) {
-            List<MyTicketDetail> orderTickets = ticketRepository.getTicketDetailsByOrderId(order.getId());
-            allTickets.addAll(orderTickets);
+            List<Ticket> tickets = ticketRepository.findByOrderIdOrderByCreatedAtAsc(order.getId());
+            for (Ticket ticket : tickets) {
+                Seat seat = seatRepository.findById(ticket.getSeatId()).orElse(null);
+                if (seat == null) continue;
+                SeatZone zone = seatZoneRepository.findById(seat.getSeatZoneId()).orElse(null);
+                if (zone == null) continue;
+                Concert concert = concertRepository.findById(zone.getConcertId()).orElse(null);
+                if (concert == null) continue;
+
+                allTickets.add(MyTicketDetail.builder()
+                        .id(ticket.getId())
+                        .ticketCode(ticket.getTicketCode())
+                        .concertTitle(concert.getTitle())
+                        .venue(concert.getVenue())
+                        .startTime(concert.getStartTime() != null ? concert.getStartTime().toString() : null)
+                        .zoneName(zone.getName())
+                        .seatNumber(seat.getSeatNumber())
+                        .price(zone.getPrice())
+                        .orderStatus(order.getStatus() != null ? order.getStatus().name() : null)
+                        .orderId(order.getId())
+                        .build());
+            }
         }
-        
+
         return allTickets;
     }
 }
