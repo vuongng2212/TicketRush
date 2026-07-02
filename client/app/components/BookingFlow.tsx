@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useSubscription } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import { useAuth } from '../context/AuthContext';
+import { SeatMap } from './SeatMap';
+import { HoldCountdown } from './HoldCountdown';
+import { TicketCard } from './TicketCard';
 // user is fetched for future "use user.email on receipt"; reserved for now
 void useAuth;
 
@@ -16,6 +19,19 @@ const GET_CONCERT_DETAIL = gql`
       venue
       startTime
       city
+      zones {
+        id
+        name
+        price
+        totalSeats
+        seats {
+          id
+          seatNumber
+          status
+          heldByUserId
+          heldUntil
+        }
+      }
     }
   }
 `;
@@ -70,10 +86,10 @@ export const BookingFlow = ({ eventId, onBack }: BookingFlowProps) => {
     variables: { concertId: eventId },
   });
 
-  const [seatInput, setSeatInput] = useState('');
-  const [order, setOrder] = useState<{ id: string; totalPrice: number } | null>(null);
+  const [selectedSeatId, setSelectedSeatId] = useState<string | null>(null);
+  const [order, setOrder] = useState<{ id: string; totalPrice: number; expiresAt: string } | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<typeof PAYMENT_METHODS[number]['id'] | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [success, setSuccess] = useState<{ ticketCode: string; seatNumber: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Handle realtime seat updates - wrap in callback to satisfy linter
@@ -81,33 +97,57 @@ export const BookingFlow = ({ eventId, onBack }: BookingFlowProps) => {
     if (!seatUpdate) return;
     
     const update = (seatUpdate as { seatStatusUpdated?: { seatId: string; status: string } } | undefined)?.seatStatusUpdated;
-    if (!update || update.seatId !== seatInput || update.status !== 'HELD') return;
+    if (!update || update.seatId !== selectedSeatId || update.status !== 'HELD') return;
     
     // Use setTimeout to defer setState and avoid cascading render warning
     const timer = setTimeout(() => {
       setError('VÉ ĐÃ BỊ GIỮ BỞI NGƯỜI KHÁC');
+      setSelectedSeatId(null);
     }, 0);
     
     return () => clearTimeout(timer);
-  }, [seatUpdate, seatInput]);
+  }, [seatUpdate, selectedSeatId]);
 
-  const event = (data as { getConcertDetail?: { title: string; artist?: string; venue: string; startTime: string } } | undefined)?.getConcertDetail;
+  const event = (data as { getConcertDetail?: { 
+    title: string; 
+    artist?: string; 
+    venue: string; 
+    startTime: string;
+    zones?: Array<{
+      id: string;
+      name: string;
+      price: number;
+      totalSeats: number;
+      seats: Array<{
+        id: string;
+        seatNumber: string;
+        status: string;
+        heldByUserId?: string;
+        heldUntil?: string;
+      }>;
+    }>;
+  } } | undefined)?.getConcertDetail;
 
-  const handleHold = async () => {
-    if (!seatInput) {
-      setError('Nhập mã ghế');
-      return;
-    }
+  const handleSeatClick = async (seatId: string) => {
+    setSelectedSeatId(seatId);
+    setError(null);
+    
     try {
-      const result = await holdSeat({ variables: { seatId: seatInput } });
-      const held = (result.data as { holdSeat?: { id: string; totalPrice: number } } | null | undefined)?.holdSeat;
+      const result = await holdSeat({ variables: { seatId } });
+      const held = (result.data as { holdSeat?: { id: string; totalPrice: number; expiresAt: string } } | null | undefined)?.holdSeat;
       if (held) {
-        setOrder({ id: held.id, totalPrice: held.totalPrice });
-        setError(null);
+        setOrder({ id: held.id, totalPrice: held.totalPrice, expiresAt: held.expiresAt });
       }
     } catch (err) {
       setError((err as Error).message || 'Giữ ghế thất bại');
+      setSelectedSeatId(null);
     }
+  };
+
+  const handleCountdownExpire = () => {
+    setOrder(null);
+    setSelectedSeatId(null);
+    setError('Hết thời gian giữ ghế. Vui lòng chọn lại.');
   };
 
   const handlePay = async () => {
@@ -119,8 +159,17 @@ export const BookingFlow = ({ eventId, onBack }: BookingFlowProps) => {
       const result = await confirmPayment({
         variables: { orderId: order.id, paymentMethod },
       });
-      const ticketCode = (result.data as { confirmPayment?: { ticket?: { ticketCode?: string } } } | null | undefined)?.confirmPayment?.ticket?.ticketCode;
-      setSuccess(ticketCode ?? 'OK');
+      const payment = (result.data as { confirmPayment?: { ticket?: { ticketCode?: string }; order?: { totalPrice?: number } } } | null | undefined)?.confirmPayment;
+      const ticketCode = payment?.ticket?.ticketCode;
+      
+      // Find seat number from selected seat
+      const seat = event?.zones?.flatMap(z => z.seats).find(s => s.id === selectedSeatId);
+      
+      if (ticketCode) {
+        setSuccess({ ticketCode, seatNumber: seat?.seatNumber ?? '' });
+      } else {
+        setSuccess({ ticketCode: 'OK', seatNumber: seat?.seatNumber ?? '' });
+      }
     } catch (err) {
       setError((err as Error).message || 'Thanh toán thất bại');
     }
@@ -137,24 +186,32 @@ export const BookingFlow = ({ eventId, onBack }: BookingFlowProps) => {
   if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-ink px-6">
-        <div className="text-center max-w-lg">
-          <p className="font-mono text-label uppercase text-coral tracking-[0.2em] mb-4">
+        <div className="max-w-md w-full">
+          <p className="font-mono text-label uppercase text-coral tracking-[0.2em] mb-4 text-center">
             Thanh toán thành công
           </p>
           <h1
-            className="font-display text-paper uppercase tracking-[-0.02em] leading-[0.95] mb-8"
+            className="font-display text-paper uppercase tracking-[-0.02em] leading-[0.95] mb-8 text-center"
             style={{ fontSize: 'clamp(48px, 8vw, 96px)' }}
           >
             Cảm ơn
           </h1>
-          <p className="font-mono text-small text-muted mb-2">Mã vé của bạn:</p>
-          <p className="font-mono text-body text-paper bg-ink-2 border border-hairline px-6 py-4 mb-8">
-            {success}
-          </p>
+          
+          <div className="mb-8">
+            <TicketCard
+              ticketCode={success.ticketCode}
+              eventTitle={event?.title ?? ''}
+              venue={event?.venue}
+              startTime={event?.startTime}
+              seatNumber={success.seatNumber}
+              price={order?.totalPrice}
+            />
+          </div>
+
           <button
             type="button"
             onClick={onBack}
-            className="font-label uppercase tracking-[0.2em] text-label border border-paper px-8 py-3 hover:bg-paper hover:text-ink"
+            className="w-full font-label uppercase tracking-[0.2em] text-label border border-paper px-8 py-3 hover:bg-paper hover:text-ink"
           >
             ← Quay lại
           </button>
@@ -192,26 +249,19 @@ export const BookingFlow = ({ eventId, onBack }: BookingFlowProps) => {
 
         {!order && (
           <div className="border-t border-hairline pt-8">
-            <label htmlFor="seat" className="block font-mono text-label uppercase text-muted tracking-[0.15em] mb-3">
-              Mã ghế
-            </label>
-            <div className="flex gap-4">
-              <input
-                id="seat"
-                type="text"
-                value={seatInput}
-                onChange={(e) => setSeatInput(e.target.value)}
-                placeholder="VD: A12"
-                className="flex-1 bg-transparent text-paper border-b border-hairline focus:border-coral py-3 font-mono text-body outline-none"
+            <p className="font-mono text-label uppercase text-muted tracking-[0.15em] mb-6">
+              Chọn ghế từ sơ đồ
+            </p>
+            
+            {event?.zones && event.zones.length > 0 && (
+              <SeatMap
+                concertId={eventId}
+                zones={event.zones}
+                onSeatClick={handleSeatClick}
+                disabled={false}
               />
-              <button
-                type="button"
-                onClick={handleHold}
-                className="font-label uppercase tracking-[0.2em] text-label bg-coral text-ink px-6 py-3 hover:bg-paper"
-              >
-                Giữ ghế
-              </button>
-            </div>
+            )}
+
             {error && (
               <p className="mt-4 font-mono text-small text-coral border-l-2 border-coral pl-3">
                 {error}
@@ -222,9 +272,12 @@ export const BookingFlow = ({ eventId, onBack }: BookingFlowProps) => {
 
         {order && !success && (
           <div className="border-t border-hairline pt-8 space-y-6">
-            <p className="font-mono text-small text-muted uppercase tracking-wider">
-              Ghế đã giữ · Tổng: {order.totalPrice.toLocaleString('vi-VN')} ₫
-            </p>
+            <div className="space-y-4">
+              <p className="font-mono text-small text-muted uppercase tracking-wider">
+                Ghế đã giữ · Tổng: {order.totalPrice.toLocaleString('vi-VN')} ₫
+              </p>
+              <HoldCountdown expiresAt={order.expiresAt} onExpire={handleCountdownExpire} />
+            </div>
 
             <div>
               <p className="font-mono text-label uppercase text-muted tracking-[0.15em] mb-3">
