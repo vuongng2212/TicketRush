@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface MobileMenuProps {
   isOpen: boolean;
@@ -12,23 +12,88 @@ interface MobileMenuProps {
 
 /**
  * Editorial Mobile Menu — full-screen black panel, no rounded, no animation
+ * A11y: focus trap, ESC closes, restore focus on close
  */
 export const MobileMenu = ({ isOpen, onClose, user, onLoginClick, onLogoutClick }: MobileMenuProps) => {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (isOpen) {
+      // Save current focus
+      previousFocusRef.current = document.activeElement as HTMLElement;
+      
+      // Lock body scroll
       document.body.style.overflow = 'hidden';
+      
+      // Focus first interactive element
+      setTimeout(() => {
+        const firstButton = menuRef.current?.querySelector('button, a') as HTMLElement;
+        firstButton?.focus();
+      }, 0);
     } else {
+      // Restore body scroll
       document.body.style.overflow = '';
+      
+      // Restore previous focus
+      if (previousFocusRef.current) {
+        previousFocusRef.current.focus();
+      }
     }
+    
     return () => {
       document.body.style.overflow = '';
     };
+  }, [isOpen]);
+
+  // ESC key handler
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, [isOpen, onClose]);
+
+  // Focus trap
+  useEffect(() => {
+    if (!isOpen || !menuRef.current) return;
+
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      
+      const focusableElements = menuRef.current?.querySelectorAll(
+        'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      
+      if (!focusableElements || focusableElements.length === 0) return;
+      
+      const firstElement = focusableElements[0] as HTMLElement;
+      const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+      
+      if (e.shiftKey && document.activeElement === firstElement) {
+        e.preventDefault();
+        lastElement.focus();
+      } else if (!e.shiftKey && document.activeElement === lastElement) {
+        e.preventDefault();
+        firstElement.focus();
+      }
+    };
+    
+    document.addEventListener('keydown', handleTab);
+    return () => document.removeEventListener('keydown', handleTab);
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   return (
     <div
+      ref={menuRef}
       className="fixed inset-0 z-[200] bg-ink flex flex-col"
       role="dialog"
       aria-modal="true"

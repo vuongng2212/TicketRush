@@ -45,6 +45,11 @@ export const Navbar = ({ onMenuClick, user, onLoginClick, onLogoutClick }: Navba
               <a
                 href="#"
                 className="font-mono text-small uppercase text-paper hover:text-coral tracking-[0.1em]"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.click();
+                  }
+                }}
               >
                 {label}
               </a>

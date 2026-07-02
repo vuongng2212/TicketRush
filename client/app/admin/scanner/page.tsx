@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface CameraDevice {
   id: string;
@@ -20,6 +21,8 @@ interface CheckInResponse {
 }
 
 export default function ScannerPage() {
+  const router = useRouter();
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [scanResult, setScanResult] = useState<CheckInResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -27,6 +30,17 @@ export default function ScannerPage() {
   const [selectedCameraId, setSelectedCameraId] = useState<string>('');
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerId = 'reader';
+
+  // Auth guard - check token on mount
+  useEffect(() => {
+    const token = localStorage.getItem('ticketrush_admin_token');
+    if (!token) {
+      router.push('/admin/login');
+    } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- legitimate auth check on mount
+      setIsAuthorized(true);
+    }
+  }, [router]);
 
   const stopScanner = () => {
     if (scannerRef.current && scannerRef.current.isScanning) {
@@ -46,9 +60,13 @@ export default function ScannerPage() {
   const processTicket = async (token: string) => {
     setLoading(true);
     try {
+      const adminToken = localStorage.getItem('ticketrush_admin_token');
       const res = await fetch('/api/admin/check-in', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`,
+        },
         body: JSON.stringify({ ticketToken: token }),
       });
       const data = await res.json();
@@ -108,6 +126,14 @@ export default function ScannerPage() {
       setIsScanning(false);
     }
   };
+
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen bg-ink flex items-center justify-center">
+        <p className="font-mono text-muted uppercase tracking-wider">Đang xác thực...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-ink text-paper flex flex-col items-center justify-center p-6">
