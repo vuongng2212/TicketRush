@@ -18,9 +18,10 @@ public class MyTicketDetail {
     private String ticketCode;
     private String concertTitle;
     private String venue;
-    private LocalDateTime startTime;
-    private String seatNumber;
+    private String startTime;     // CAST as string for ISO serialization
     private String zoneName;
+    private String seatNumber;
     private BigDecimal price;
-    private LocalDateTime purchasedAt;
+    private String orderStatus;
+    private UUID orderId;
 }
