@@ -1,14 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useState, useRef, useEffect } from 'react';
 
 interface NavbarProps {
   onMenuClick?: () => void;
   user?: { email: string } | null;
   onLoginClick?: () => void;
   onLogoutClick?: () => void;
+  onCityChange?: (city: 'Hà Nội' | 'Sài Gòn' | 'Đà Nẵng') => void;
 }
+
+const CITIES: Array<'Hà Nội' | 'Sài Gòn' | 'Đà Nẵng'> = ['Hà Nội', 'Sài Gòn', 'Đà Nẵng'];
 
 /**
  * Editorial Navbar — minimal, sharp, no glow
@@ -16,13 +20,43 @@ interface NavbarProps {
  * - Links center (mono uppercase, underline hover)
  * - Auth right
  */
-export const Navbar = ({ onMenuClick, user, onLoginClick, onLogoutClick }: NavbarProps) => {
+export const Navbar = ({ onMenuClick, user, onLoginClick, onLogoutClick, onCityChange }: NavbarProps) => {
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isCityDropdownOpen, setIsCityDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLLIElement>(null);
 
   const handleMenu = () => {
     setIsMenuOpen((v) => !v);
     onMenuClick?.();
   };
+
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const handleCitySelect = (city: 'Hà Nội' | 'Sài Gòn' | 'Đà Nẵng') => {
+    onCityChange?.(city);
+    setIsCityDropdownOpen(false);
+  };
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsCityDropdownOpen(false);
+      }
+    };
+    if (isCityDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isCityDropdownOpen]);
 
   return (
     <>
@@ -39,29 +73,70 @@ export const Navbar = ({ onMenuClick, user, onLoginClick, onLogoutClick }: Navba
             TICKETRUSH
           </Link>
 
-          {/* Center links — desktop only */}
-          <ul className="hidden md:flex items-center gap-8">
-            {['Hôm nay', 'Cuối tuần', 'Thành phố', 'Nghệ sĩ'].map((label) => (
-              <li key={label}>
-                <a
-                  href="#"
-                  className="font-mono text-small uppercase text-paper hover:text-coral tracking-[0.1em]"
-                >
-                  {label}
-                </a>
-              </li>
-            ))}
-            {user && (
-              <li>
-                <Link
-                  href="/my-tickets"
-                  className="font-mono text-small uppercase text-paper hover:text-coral tracking-[0.1em]"
-                >
-                  Vé của tôi
-                </Link>
-              </li>
+        {/* Center links — desktop only */}
+        <ul className="hidden md:flex items-center gap-8">
+          <li>
+            <button
+              type="button"
+              onClick={() => scrollToSection('tonight')}
+              className="font-mono text-small uppercase text-paper hover:text-coral tracking-[0.1em]"
+            >
+              Hôm nay
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              onClick={() => scrollToSection('weekend')}
+              className="font-mono text-small uppercase text-paper hover:text-coral tracking-[0.1em]"
+            >
+              Cuối tuần
+            </button>
+          </li>
+          <li className="relative" ref={dropdownRef}>
+            <button
+              type="button"
+              onClick={() => setIsCityDropdownOpen((v) => !v)}
+              className="font-mono text-small uppercase text-paper hover:text-coral tracking-[0.1em]"
+              aria-expanded={isCityDropdownOpen}
+            >
+              Thành phố {isCityDropdownOpen ? '▴' : '▾'}
+            </button>
+            {isCityDropdownOpen && (
+              <div className="absolute top-full left-0 mt-2 bg-ink border border-hairline min-w-[160px]">
+                {CITIES.map((city) => (
+                  <button
+                    key={city}
+                    type="button"
+                    onClick={() => handleCitySelect(city)}
+                    className="w-full text-left px-4 py-2 font-mono text-small uppercase text-paper hover:bg-ink-2 hover:text-coral tracking-[0.1em]"
+                  >
+                    {city}
+                  </button>
+                ))}
+              </div>
             )}
-          </ul>
+          </li>
+          <li>
+            <button
+              type="button"
+              onClick={() => router.push('/search')}
+              className="font-mono text-small uppercase text-paper hover:text-coral tracking-[0.1em]"
+            >
+              Nghệ sĩ
+            </button>
+          </li>
+          {user && (
+            <li>
+              <Link
+                href="/my-tickets"
+                className="font-mono text-small uppercase text-paper hover:text-coral tracking-[0.1em]"
+              >
+                Vé của tôi
+              </Link>
+            </li>
+          )}
+        </ul>
 
           {/* Auth + mobile menu */}
           <div className="flex items-center gap-4">
