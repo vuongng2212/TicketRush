@@ -1,6 +1,9 @@
 package com.ticketrush.server.domain.order;
 
 import com.ticketrush.server.domain.concert.SeatUpdatedPayload;
+import com.ticketrush.server.domain.concert.SeatRepository;
+import com.ticketrush.server.domain.concert.SeatZoneRepository;
+import com.ticketrush.server.domain.concert.ConcertRepository;
 import com.ticketrush.server.domain.user.User;
 import com.ticketrush.server.domain.user.UserRepository;
 import com.ticketrush.server.infrastructure.graphql.SeatEventPublisher;
@@ -27,14 +30,33 @@ class BookingGraphQLControllerTest {
     private BookingGraphQLController controller;
     private BookingService bookingService;
     private UserRepository userRepository;
+    private OrderRepository orderRepository;
+    private TicketRepository ticketRepository;
+    private SeatRepository seatRepository;
+    private SeatZoneRepository seatZoneRepository;
+    private ConcertRepository concertRepository;
     private SeatEventPublisher seatEventPublisher;
 
     @BeforeEach
     void setUp() {
         bookingService = Mockito.mock(BookingService.class);
         userRepository = Mockito.mock(UserRepository.class);
+        orderRepository = Mockito.mock(OrderRepository.class);
+        ticketRepository = Mockito.mock(TicketRepository.class);
+        seatRepository = Mockito.mock(SeatRepository.class);
+        seatZoneRepository = Mockito.mock(SeatZoneRepository.class);
+        concertRepository = Mockito.mock(ConcertRepository.class);
         seatEventPublisher = Mockito.mock(SeatEventPublisher.class);
-        controller = new BookingGraphQLController(bookingService, userRepository, seatEventPublisher);
+        controller = new BookingGraphQLController(
+            bookingService, 
+            userRepository, 
+            orderRepository,
+            ticketRepository,
+            seatRepository,
+            seatZoneRepository,
+            concertRepository,
+            seatEventPublisher
+        );
 
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("test@example.com", "password")

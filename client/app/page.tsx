@@ -12,6 +12,9 @@ import { FeaturedEvent } from '@/components/FeaturedEvent';
 import { Footer } from '@/components/Footer';
 import { AuthScreen } from './components/AuthScreen';
 import { BookingFlow } from './components/BookingFlow';
+import { LoadingState } from './components/LoadingState';
+import { ErrorState } from './components/ErrorState';
+import { EmptyState } from './components/EmptyState';
 
 import type { EditorialEvent } from '@/components/EventRow';
 import { formatDateBucket } from '@/lib/design-tokens';
@@ -64,7 +67,7 @@ export default function Home() {
   const [bookingEventId, setBookingEventId] = useState<string | null>(null);
 
   // GraphQL
-  const { data } = useQuery(GET_CONCERTS, {
+  const { data, loading, error } = useQuery(GET_CONCERTS, {
     variables: { limit: 12 },
     skip: !token,
   });
@@ -152,6 +155,21 @@ export default function Home() {
   // Auth gate
   if (!token) {
     return <AuthScreen />;
+  }
+
+  // Loading state
+  if (loading) {
+    return <LoadingState />;
+  }
+
+  // Error state
+  if (error) {
+    return <ErrorState message={error.message} />;
+  }
+
+  // Empty state
+  if (allEvents.length === 0) {
+    return <EmptyState message="Chưa có sự kiện nào" />;
   }
 
   // Booking flow overlay

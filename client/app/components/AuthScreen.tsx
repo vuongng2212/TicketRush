@@ -25,24 +25,57 @@ const LOGIN = gql`
 import { useAuth } from '../context/AuthContext';
 
 export const AuthScreen = () => {
-  // Cast through unknown to avoid TS strict null check on undefined context
-  const authContext = useAuth() as unknown as {
-    login: (token: string, user: { id: string; email: string; roles: string[] }) => void;
-  };
-  const { login } = authContext;
+  const { login, refreshMe } = useAuth();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
   const [registerMutation, { loading: registerLoading }] = useMutation(REGISTER);
   const [loginMutation, { loading: loginLoading }] = useMutation(LOGIN);
+
+  const validateEmail = (value: string): boolean => {
+    const emailRegex = /^[^@]+@[^@]+\.[^@]+$/;
+    if (!value) {
+      setEmailError('Email không được để trống');
+      return false;
+    }
+    if (!emailRegex.test(value)) {
+      setEmailError('Email không hợp lệ');
+      return false;
+    }
+    setEmailError('');
+    return true;
+  };
+
+  const validatePassword = (value: string): boolean => {
+    if (!value) {
+      setPasswordError('Mật khẩu không được để trống');
+      return false;
+    }
+    if (value.length < 8) {
+      setPasswordError('Mật khẩu phải có ít nhất 8 ký tự');
+      return false;
+    }
+    setPasswordError('');
+    return true;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+    
+    const isEmailValid = validateEmail(email);
+    const isPasswordValid = validatePassword(password);
+    
+    if (!isEmailValid || !isPasswordValid) {
+      return;
+    }
+    
     try {
       if (isRegister) {
         await registerMutation({ variables: { email, password } });
@@ -53,6 +86,7 @@ export const AuthScreen = () => {
         const auth = (res.data as { login?: { token: string; user: { id: string; email: string; roles: string[] } } } | null | undefined)?.login;
         if (auth) {
           login(auth.token, auth.user);
+          await refreshMe();
         }
       }
     } catch (err) {
@@ -61,6 +95,7 @@ export const AuthScreen = () => {
   };
 
   const isLoading = registerLoading || loginLoading;
+  const isFormValid = email && password && !emailError && !passwordError;
 
   return (
     <div className="min-h-screen bg-ink flex items-center justify-center px-6 py-12">
@@ -83,11 +118,18 @@ export const AuthScreen = () => {
               type="email"
               required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (e.target.value) validateEmail(e.target.value);
+              }}
+              onBlur={(e) => validateEmail(e.target.value)}
               className="w-full bg-transparent text-paper border-b border-hairline focus:border-coral py-3 font-body text-body outline-none"
               placeholder="email@cuaban.vn"
               autoComplete="email"
             />
+            {emailError && (
+              <p className="mt-2 font-mono text-small text-coral">{emailError}</p>
+            )}
           </div>
 
           <div>
@@ -98,12 +140,19 @@ export const AuthScreen = () => {
               id="password"
               type="password"
               required
-              minLength={6}
+              minLength={8}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (e.target.value) validatePassword(e.target.value);
+              }}
+              onBlur={(e) => validatePassword(e.target.value)}
               className="w-full bg-transparent text-paper border-b border-hairline focus:border-coral py-3 font-body text-body outline-none"
               autoComplete={isRegister ? 'new-password' : 'current-password'}
             />
+            {passwordError && (
+              <p className="mt-2 font-mono text-small text-coral">{passwordError}</p>
+            )}
           </div>
 
           {error && (
@@ -119,7 +168,7 @@ export const AuthScreen = () => {
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || !isFormValid}
             className="w-full font-label uppercase tracking-[0.2em] text-label bg-coral text-ink py-4 hover:bg-paper disabled:opacity-50"
           >
             {isLoading ? '...' : isRegister ? 'Tạo tài khoản' : 'Đăng nhập'}

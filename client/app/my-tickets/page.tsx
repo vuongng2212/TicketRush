@@ -1,93 +1,97 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
+import { useAuth } from '../context/AuthContext';
+import { useQuery } from '@apollo/client/react';
+import { gql } from '@apollo/client';
+import { LoadingState } from '../components/LoadingState';
+import { ErrorState } from '../components/ErrorState';
+import { EmptyState } from '../components/EmptyState';
 import { TicketCard } from '../components/TicketCard';
 
-// Mock data for Phase 1 (Phase 2 will wire backend)
-const MOCK_TICKETS = [
-  {
-    id: '1',
-    ticketCode: 'TK-2026-001-A12',
-    eventTitle: 'Đen Vâu Live in Saigon',
-    venue: 'Sân vận động Quân khu 7',
-    startTime: '2026-07-15T19:00:00Z',
-    seatNumber: 'A12',
-    price: 500000,
-    status: 'CONFIRMED',
-  },
-  {
-    id: '2',
-    ticketCode: 'TK-2026-002-B08',
-    eventTitle: 'Sơn Tùng M-TP Concert',
-    venue: 'Cung điện văn hóa',
-    startTime: '2026-08-20T20:00:00Z',
-    seatNumber: 'B08',
-    price: 800000,
-    status: 'CONFIRMED',
-  },
-];
+const GET_MY_TICKETS = gql`
+  query GetMyTickets {
+    getMyTickets {
+      id
+      ticketCode
+      concertTitle
+      venue
+      startTime
+      endTime
+      seatSection
+      seatRow
+      seatNumber
+      price
+      orderStatus
+      orderId
+    }
+  }
+`;
+
+interface MyTicketDetail {
+  id: string;
+  ticketCode: string;
+  concertTitle: string;
+  venue: string;
+  startTime: string;
+  endTime: string;
+  seatSection: string;
+  seatRow: string;
+  seatNumber: string;
+  price: number;
+  orderStatus: string;
+  orderId: string;
+}
+
+interface GetMyTicketsData {
+  getMyTickets: MyTicketDetail[];
+}
 
 export default function MyTicketsPage() {
-  const [tickets] = useState(MOCK_TICKETS);
+  const { token, user } = useAuth();
+  const { data, loading, error } = useQuery<GetMyTicketsData>(GET_MY_TICKETS, {
+    skip: !token,
+  });
+
+  if (!token || !user) {
+    return (
+      <div className="min-h-screen bg-ink flex items-center justify-center px-6">
+        <p className="font-mono text-muted">Vui lòng đăng nhập</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return <LoadingState />;
+  }
+
+  if (error) {
+    return <ErrorState message={error.message} />;
+  }
+
+  const tickets: MyTicketDetail[] = data?.getMyTickets || [];
+
+  if (tickets.length === 0) {
+    return <EmptyState message="Bạn chưa có vé nào" />;
+  }
 
   return (
-    <div className="min-h-screen bg-ink text-paper">
-      {/* Header */}
-      <div className="border-b border-hairline px-6 lg:px-12 py-8">
-        <Link
-          href="/"
-          className="inline-block font-mono text-small uppercase text-muted hover:text-coral tracking-wider mb-6"
-        >
-          ← Quay lại
-        </Link>
-
-        <p className="font-mono text-label uppercase text-coral tracking-[0.2em] mb-4">
-          Vé của tôi
-        </p>
-        <h1
-          className="font-display text-paper uppercase tracking-[-0.02em] leading-[0.95]"
-          style={{ fontSize: 'clamp(48px, 8vw, 96px)' }}
-        >
-          {tickets.length} vé
-        </h1>
-      </div>
-
-      {/* Tickets Grid */}
-      <div className="px-6 lg:px-12 py-12">
-        {tickets.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="font-body text-body text-muted mb-6">
-              Bạn chưa có vé nào. Đặt vé ngay để không bỏ lỡ những sự kiện tuyệt vời!
-            </p>
-            <Link
-              href="/"
-              className="inline-block font-label uppercase tracking-[0.2em] text-label bg-coral text-ink px-8 py-4 hover:bg-paper"
-            >
-              Khám phá sự kiện
-            </Link>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl">
-            {tickets.map((ticket) => (
-              <div key={ticket.id}>
-                <TicketCard
-                  ticketCode={ticket.ticketCode}
-                  eventTitle={ticket.eventTitle}
-                  venue={ticket.venue}
-                  startTime={ticket.startTime}
-                  seatNumber={ticket.seatNumber}
-                  price={ticket.price}
-                />
-                <div className="mt-3 flex items-center justify-between">
-                  <span className="font-mono text-small uppercase text-muted tracking-wider">
-                    {ticket.status === 'CONFIRMED' ? 'Đã xác nhận' : ticket.status}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+    <div className="min-h-screen bg-ink px-6 py-12">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="font-display text-display text-paper mb-8">Vé của tôi</h1>
+        
+        <div className="space-y-6">
+          {tickets.map((ticket) => (
+            <TicketCard
+              key={ticket.id}
+              ticketCode={ticket.ticketCode}
+              eventTitle={ticket.concertTitle}
+              venue={ticket.venue}
+              startTime={ticket.startTime}
+              seatNumber={`${ticket.seatSection} - Hàng ${ticket.seatRow} - Số ${ticket.seatNumber}`}
+              price={ticket.price}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
