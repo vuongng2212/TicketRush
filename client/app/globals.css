@@ -1,7 +1,6 @@
-@import "tailwindcss";
-
-/* Google Fonts: Bebas Neue (display), Be Vietnam Pro (body), Archivo Narrow (label) */
+/* Google Fonts must be imported BEFORE @import "tailwindcss" to satisfy CSS @import order rules */
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Be+Vietnam+Pro:wght@300;400;500;600;700&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
 
 :root {
   /* Editorial Music Discovery palette */
