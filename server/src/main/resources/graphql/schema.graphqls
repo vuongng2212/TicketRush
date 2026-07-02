@@ -3,6 +3,8 @@ type Query {
     getConcertDetail(concertId: ID!): ConcertDetail!
     getConcerts(status: String, limit: Int): [ConcertSummary!]!
     getFeaturedConcerts(limit: Int): [ConcertSummary!]!
+    getMyOrders: [Order!]!
+    getMyTickets: [MyTicketDetail!]!
 }
 
 type Mutation {
@@ -105,6 +107,18 @@ type Ticket {
     orderId: ID!
     seatId: ID!
     ticketCode: String!
+}
+
+type MyTicketDetail {
+    id: ID!
+    ticketCode: String!
+    concertTitle: String!
+    venue: String!
+    startTime: String!
+    seatNumber: String!
+    zoneName: String!
+    price: Float!
+    purchasedAt: String!
 }
 
 enum PaymentMethod {

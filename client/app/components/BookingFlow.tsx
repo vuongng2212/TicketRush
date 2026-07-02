@@ -37,6 +37,15 @@ const CONFIRM_PAYMENT = gql`
   }
 `;
 
+const CANCEL_ORDER = gql`
+  mutation CancelOrder($orderId: ID!) {
+    cancelOrder(orderId: $orderId) {
+      id
+      status
+    }
+  }
+`;
+
 const SEAT_STATUS_SUBSCRIPTION = gql`
   subscription SeatStatusUpdated($concertId: ID!) {
     seatStatusUpdated(concertId: $concertId) {
@@ -64,6 +73,7 @@ export const BookingFlow = ({ eventId, onBack }: BookingFlowProps) => {
   const { data, loading } = useQuery(GET_CONCERT_DETAIL, { variables: { concertId: eventId } });
   const [holdSeat] = useMutation(HOLD_SEAT);
   const [confirmPayment, { loading: payLoading }] = useMutation(CONFIRM_PAYMENT);
+  const [cancelOrder, { loading: cancelLoading }] = useMutation(CANCEL_ORDER);
 
   // Subscribe to seat status updates
   const { data: seatUpdate } = useSubscription(SEAT_STATUS_SUBSCRIPTION, {
@@ -123,6 +133,18 @@ export const BookingFlow = ({ eventId, onBack }: BookingFlowProps) => {
       setSuccess(ticketCode ?? 'OK');
     } catch (err) {
       setError((err as Error).message || 'Thanh toán thất bại');
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!order) return;
+    try {
+      await cancelOrder({ variables: { orderId: order.id } });
+      setOrder(null);
+      setPaymentMethod(null);
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message || 'Hủy đơn thất bại');
     }
   };
 
@@ -258,14 +280,24 @@ export const BookingFlow = ({ eventId, onBack }: BookingFlowProps) => {
               </p>
             )}
 
-            <button
-              type="button"
-              onClick={handlePay}
-              disabled={!paymentMethod || payLoading}
-              className="font-label uppercase tracking-[0.2em] text-label bg-coral text-ink px-8 py-4 hover:bg-paper disabled:opacity-50"
-            >
-              {payLoading ? '...' : `Thanh toán ${order.totalPrice.toLocaleString('vi-VN')} ₫`}
-            </button>
+            <div className="flex gap-4">
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={cancelLoading}
+                className="flex-1 font-label uppercase tracking-[0.2em] text-label border border-muted text-muted px-8 py-4 hover:border-paper hover:text-paper disabled:opacity-50"
+              >
+                {cancelLoading ? '...' : 'Hủy giữ ghế'}
+              </button>
+              <button
+                type="button"
+                onClick={handlePay}
+                disabled={!paymentMethod || payLoading}
+                className="flex-1 font-label uppercase tracking-[0.2em] text-label bg-coral text-ink px-8 py-4 hover:bg-paper disabled:opacity-50"
+              >
+                {payLoading ? '...' : `Thanh toán ${order.totalPrice.toLocaleString('vi-VN')} ₫`}
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 
 interface User {
   id: string;
@@ -14,6 +14,7 @@ interface AuthContextType {
   login: (token: string, user: User) => void;
   logout: () => void;
   loading: boolean;
+  refreshMe: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -43,6 +44,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   
   const [loading] = useState(false); // Always false with lazy initialization
 
+  const refreshMe = useCallback(async () => {
+    if (!token) return;
+    
+    try {
+      const response = await fetch('/api/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          query: 'query { me { id email roles } }',
+        }),
+      });
+      
+      const result = await response.json();
+      if (result.data?.me) {
+        const updatedUser = result.data.me;
+        localStorage.setItem('ticketrush_user', JSON.stringify(updatedUser));
+        setUser(updatedUser);
+      }
+    } catch (error) {
+      console.error('Failed to refresh user data:', error);
+    }
+  }, [token]);
+
   const login = (newToken: string, newUser: User) => {
     localStorage.setItem('ticketrush_token', newToken);
     localStorage.setItem('ticketrush_user', JSON.stringify(newUser));
@@ -58,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ token, user, login, logout, loading }}>
+    <AuthContext.Provider value={{ token, user, login, logout, loading, refreshMe }}>
       {children}
     </AuthContext.Provider>
   );
