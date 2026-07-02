@@ -70,7 +70,7 @@ describe('AuthScreen', () => {
     const passwordInput = screen.getByLabelText(/Mật khẩu/i);
     expect(passwordInput).toHaveAttribute('type', 'password');
     expect(passwordInput).toHaveAttribute('required');
-    expect(passwordInput).toHaveAttribute('minLength', '6');
+    expect(passwordInput).toHaveAttribute('minLength', '8');
   });
 
   it('switches to register mode', async () => {
