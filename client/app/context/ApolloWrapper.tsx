@@ -15,11 +15,8 @@ export function ApolloWrapper({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-white font-sans">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-700 border-t-indigo-500"></div>
-          <span className="text-zinc-400 text-sm tracking-widest uppercase">Loading TicketRush...</span>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-ink">
+        <p className="font-mono text-label uppercase text-muted tracking-[0.2em]">ĐANG TẢI...</p>
       </div>
     );
   }

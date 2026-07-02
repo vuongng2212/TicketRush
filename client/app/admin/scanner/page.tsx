@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { Camera, CheckCircle, XCircle, AlertTriangle, RefreshCw, Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
 interface CameraDevice {
@@ -111,34 +110,38 @@ export default function ScannerPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden p-6">
+    <div className="min-h-screen bg-ink text-paper flex flex-col items-center justify-center p-6">
+      <div className="w-full max-w-md border border-hairline bg-ink p-8">
         
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <Link href="/" className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors flex items-center gap-1 text-sm">
-            <ArrowLeft className="w-4 h-4" /> Back
+        <div className="flex items-center justify-between mb-8 border-b border-hairline pb-6">
+          <Link 
+            href="/" 
+            className="font-mono text-label uppercase text-muted hover:text-coral tracking-[0.15em]"
+          >
+            ← Quay lại
           </Link>
-          <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-            <Camera className="w-5 h-5 text-cyan-400" /> Ticket Scanner
+          <h1 className="font-label text-label uppercase tracking-[0.2em] text-paper">
+            SCANNER
           </h1>
-          <div className="w-12"></div>
+          <div className="w-20"></div>
         </div>
 
         {/* Scan box area */}
-        <div className="relative w-full aspect-square bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex flex-col items-center justify-center mb-6">
+        <div className="relative w-full aspect-square bg-ink-2 border border-hairline flex flex-col items-center justify-center mb-8">
           <div id={scannerId} className="w-full h-full"></div>
           
           {!isScanning && !loading && !scanResult && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center z-10 bg-slate-950/80">
-              <Camera className="w-12 h-12 text-slate-600 mb-2 animate-pulse" />
-              <p className="text-slate-400 text-sm mb-4">Allow camera access and click Start Scanning</p>
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center z-10 bg-ink">
+              <p className="font-mono text-label uppercase text-muted tracking-[0.15em] mb-6">
+                CHỌN CAMERA VÀ BẮT ĐẦU
+              </p>
               
               {cameras.length > 0 && (
                 <select
                   value={selectedCameraId}
                   onChange={(e) => setSelectedCameraId(e.target.value)}
-                  className="bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm w-3/4 mb-4 outline-none focus:border-cyan-500"
+                  className="bg-ink-2 border border-hairline text-paper font-mono text-small px-4 py-3 w-full mb-6 outline-none focus:border-coral"
                 >
                   {cameras.map((cam) => (
                     <option key={cam.id} value={cam.id}>
@@ -150,69 +153,95 @@ export default function ScannerPage() {
 
               <button
                 onClick={startScanner}
-                className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold px-6 py-2.5 rounded-xl transition-all shadow-lg hover:shadow-cyan-500/20"
+                className="font-label uppercase tracking-[0.2em] text-label bg-coral text-ink px-8 py-3 hover:bg-paper w-full"
               >
-                Start Scanning
+                Bắt đầu quét
               </button>
             </div>
           )}
 
           {loading && (
-            <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center z-20">
-              <Loader2 className="w-10 h-10 text-cyan-400 animate-spin mb-2" />
-              <p className="text-slate-400 text-sm">Verifying ticket via gRPC...</p>
+            <div className="absolute inset-0 bg-ink flex flex-col items-center justify-center z-20">
+              <p className="font-mono text-label uppercase text-muted tracking-[0.2em]">
+                ĐANG XÁC MINH...
+              </p>
             </div>
           )}
         </div>
 
         {/* Result Area */}
         {scanResult && (
-          <div className="mt-4 p-5 rounded-xl border animate-fade-in bg-slate-950 border-slate-800">
+          <div className="border border-hairline p-6 bg-ink-2">
             {scanResult.status === 'SUCCESS' && (
-              <div className="flex flex-col items-center text-center">
-                <CheckCircle className="w-12 h-12 text-emerald-400 mb-3" />
-                <h3 className="text-lg font-bold text-white mb-2">Check-In Successful</h3>
-                <div className="w-full text-left space-y-2 mt-2 text-sm border-t border-slate-800 pt-3">
-                  <div className="flex justify-between"><span className="text-slate-500">Attendee:</span> <span className="font-semibold text-slate-200">{scanResult.attendeeName}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Concert:</span> <span className="font-semibold text-slate-200">{scanResult.concertTitle}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Seat Number:</span> <span className="font-semibold text-cyan-400">{scanResult.seatNumber}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Checked In:</span> <span className="text-slate-300 text-xs">{new Date(scanResult.checkedInAt!).toLocaleTimeString()}</span></div>
+              <div className="flex flex-col">
+                <p className="font-mono text-label uppercase text-coral tracking-[0.2em] mb-6 text-center">
+                  CHECK-IN THÀNH CÔNG
+                </p>
+                <div className="space-y-3 border-t border-hairline pt-4">
+                  <div className="flex justify-between">
+                    <span className="font-mono text-small uppercase text-muted tracking-wider">Người tham dự:</span>
+                    <span className="font-mono text-small text-paper">{scanResult.attendeeName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-mono text-small uppercase text-muted tracking-wider">Concert:</span>
+                    <span className="font-mono text-small text-paper">{scanResult.concertTitle}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-mono text-small uppercase text-muted tracking-wider">Ghế số:</span>
+                    <span className="font-mono text-small text-coral">{scanResult.seatNumber}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-mono text-small uppercase text-muted tracking-wider">Giờ check-in:</span>
+                    <span className="font-mono text-[11px] text-muted">{scanResult.checkedInAt && new Date(scanResult.checkedInAt).toLocaleTimeString('vi-VN')}</span>
+                  </div>
                 </div>
               </div>
             )}
 
             {scanResult.status === 'ALREADY_CHECKED_IN' && (
-              <div className="flex flex-col items-center text-center">
-                <AlertTriangle className="w-12 h-12 text-amber-400 mb-3 animate-bounce" />
-                <h3 className="text-lg font-bold text-white mb-2">Already Checked In</h3>
-                <p className="text-slate-400 text-xs px-4 mb-2">This ticket has already been used for entry.</p>
+              <div className="flex flex-col text-center">
+                <p className="font-mono text-label uppercase text-coral tracking-[0.2em] mb-4">
+                  ĐÃ CHECK-IN
+                </p>
+                <p className="font-body text-small text-muted">
+                  Vé này đã được sử dụng để vào cửa.
+                </p>
                 {scanResult.ticketId && (
-                  <p className="text-slate-600 text-[10px] select-all mt-1">ID: {scanResult.ticketId}</p>
+                  <p className="font-mono text-[10px] text-muted mt-3">ID: {scanResult.ticketId}</p>
                 )}
               </div>
             )}
 
             {scanResult.status === 'INVALID_TICKET' && (
-              <div className="flex flex-col items-center text-center">
-                <XCircle className="w-12 h-12 text-rose-400 mb-3" />
-                <h3 className="text-lg font-bold text-white mb-2">Invalid Ticket</h3>
-                <p className="text-slate-400 text-xs px-4">Verification failed. Ticket code not registered.</p>
+              <div className="flex flex-col text-center">
+                <p className="font-mono text-label uppercase text-coral tracking-[0.2em] mb-4">
+                  VÉ KHÔNG HỢP LỆ
+                </p>
+                <p className="font-body text-small text-muted">
+                  Xác thực thất bại. Mã vé không được đăng ký.
+                </p>
               </div>
             )}
 
             {scanResult.status === 'UNAUTHORIZED' && (
-              <div className="flex flex-col items-center text-center">
-                <XCircle className="w-12 h-12 text-purple-400 mb-3" />
-                <h3 className="text-lg font-bold text-white mb-2">Unauthorized Admin</h3>
-                <p className="text-slate-400 text-xs px-4">Secret admin authentication token rejected by server.</p>
+              <div className="flex flex-col text-center">
+                <p className="font-mono text-label uppercase text-coral tracking-[0.2em] mb-4">
+                  KHÔNG CÓ QUYỀN
+                </p>
+                <p className="font-body text-small text-muted">
+                  Token admin bị từ chối bởi máy chủ.
+                </p>
               </div>
             )}
 
             {scanResult.status === 'UNKNOWN' && (
-              <div className="flex flex-col items-center text-center">
-                <AlertTriangle className="w-12 h-12 text-rose-500 mb-3" />
-                <h3 className="text-lg font-bold text-white mb-2">Connection Error</h3>
-                <p className="text-slate-400 text-xs px-4">{scanResult.error || 'Unknown error occurred'}</p>
+              <div className="flex flex-col text-center">
+                <p className="font-mono text-label uppercase text-coral tracking-[0.2em] mb-4">
+                  LỖI KẾT NỐI
+                </p>
+                <p className="font-body text-small text-muted">
+                  {scanResult.error || 'Đã xảy ra lỗi không xác định'}
+                </p>
               </div>
             )}
 
@@ -221,9 +250,9 @@ export default function ScannerPage() {
                 setScanResult(null);
                 startScanner();
               }}
-              className="w-full mt-4 flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold py-2.5 rounded-lg transition-colors border border-slate-700"
+              className="w-full mt-6 font-label uppercase tracking-[0.2em] text-label border border-paper px-6 py-3 hover:bg-paper hover:text-ink"
             >
-              <RefreshCw className="w-4 h-4" /> Scan Next Ticket
+              Quét vé tiếp theo
             </button>
           </div>
         )}
@@ -231,9 +260,9 @@ export default function ScannerPage() {
         {isScanning && (
           <button
             onClick={stopScanner}
-            className="w-full mt-4 bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 font-semibold py-2.5 rounded-lg border border-rose-900/60 transition-colors"
+            className="w-full mt-4 font-label uppercase tracking-[0.2em] text-label border border-coral text-coral px-6 py-3 hover:bg-coral hover:text-ink"
           >
-            Cancel Scanning
+            Hủy quét
           </button>
         )}
       </div>

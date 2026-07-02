@@ -1,22 +1,24 @@
+/* Google Fonts must be imported BEFORE @import "tailwindcss" to satisfy CSS @import order rules */
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Be+Vietnam+Pro:wght@300;400;500;600;700&family=Archivo+Narrow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0a;
-  --background-2: #111111;
-  --foreground: #ffffff;
-
-  /* Electric palette — lean into blue primary, use magenta/lime sparingly */
-  --electric-blue: #00d4ff;
-  --electric-cyan: #0affed;
-  --hot-magenta: #ff2d7b;
-  --hot-pink: #ff006e;
-  --lime-rush: #39ff14;
-  --acid-yellow: #eaff00;
+  /* Editorial Music Discovery palette */
+  --ink: #0A0A0A;
+  --ink-2: #111111;
+  --ink-3: #1A1A1A;
+  --paper: #FFFFFF;
+  --coral: #F24726;
+  --coral-2: #D63B1F;
+  --hairline: #333333;
+  --muted: #999999;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-coral: var(--coral);
+  --color-hairline: var(--hairline);
 }
 
 /* Respect prefers-reduced-motion */
@@ -29,147 +31,55 @@
   }
 }
 
-/* ─── GLOBAL GRAIN TEXTURE ─── 
-     Fixed, no repaint cost, concert-poster grit */
+/* Subtle grain texture — keep anti-AI feel, very low opacity */
 html::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 9999;
-  opacity: 0.035;
+  opacity: 0.015;
   mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
 }
 
-/* ─── CRT SCANLINES ─── 
-     Subtle horizontal lines for retro concert-flyer feel */
-.crt-scanlines {
-  position: relative;
+html {
+  scroll-behavior: smooth;
+  background: var(--ink);
 }
-.crt-scanlines::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0, 0, 0, 0.08) 2px,
-    rgba(0, 0, 0, 0.08) 4px
-  );
-  z-index: 1;
-}
-
-/* ─── GLASS (SELECTIVE) ─── */
-.glass-electric {
-  background: rgba(18, 20, 22, 0.55);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(0, 212, 255, 0.15);
-}
-
-.glass-magenta {
-  background: rgba(22, 16, 20, 0.6);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 45, 123, 0.2);
-}
-
-/* ─── NEON GLOWS ─── */
-.neon-glow-blue {
-  box-shadow: 0 0 20px rgba(0, 212, 255, 0.5), inset 0 0 20px rgba(0, 212, 255, 0.1);
-}
-.neon-glow-magenta {
-  box-shadow: 0 0 20px rgba(255, 45, 123, 0.5), inset 0 0 20px rgba(255, 45, 123, 0.1);
-}
-.neon-glow-lime {
-  box-shadow: 0 0 20px rgba(57, 255, 20, 0.5), inset 0 0 20px rgba(57, 255, 20, 0.1);
-}
-
-/* ─── GRADIENT STROKE ─── 
-     For ticket stub edges, card borders */
-.gradient-stroke {
-  position: relative;
-}
-.gradient-stroke::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  padding: 1px;
-  border-radius: inherit;
-  background: linear-gradient(135deg, #00d4ff, #ff2d7b 55%, #39ff14);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
-/* ─── SHIMMER SKELETON ─── */
-.shimmer {
-  background: linear-gradient(90deg, rgba(0, 212, 255, 0.04) 0%, rgba(0, 212, 255, 0.18) 50%, rgba(0, 212, 255, 0.04) 100%);
-  background-size: 200% 100%;
-  animation: shimmer 2.4s linear infinite;
-}
-
-/* ─── ENERGY PULSE SWEEP ─── */
-.energy-pulse {
-  position: relative;
-  overflow: hidden;
-}
-.energy-pulse::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 35%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.55), rgba(255, 45, 123, 0.45), transparent);
-  filter: blur(6px);
-  animation: energy-line 4s linear infinite;
-}
-
-/* ─── TICKET STUB PERFORATED EDGE ─── */
-.ticket-stub-edge {
-  position: relative;
-}
-.ticket-stub-edge::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 16px;
-  background: radial-gradient(circle at 8px 8px, #0a0a0a 5px, transparent 6px);
-  background-size: 16px 16px;
-}
-.ticket-stub-edge--left::after {
-  left: -8px;
-}
-.ticket-stub-edge--right::after {
-  right: -8px;
-}
-
-html { scroll-behavior: smooth; }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--ink);
+  color: var(--paper);
+  font-family: 'Be Vietnam Pro', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
+  /* No transitions on text — Editorial is instant */
+  transition: none;
 }
 
-/* Selection */
-::selection { background-color: #00d4ff; color: #0a0a0a; }
-::-moz-selection { background-color: #00d4ff; color: #0a0a0a; }
+/* Selection — coral on white */
+::selection {
+  background-color: var(--coral);
+  color: var(--paper);
+}
+::-moz-selection {
+  background-color: var(--coral);
+  color: var(--paper);
+}
 
-/* Electric scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.02); }
+/* Scrollbar — minimal */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: var(--ink);
+}
 ::-webkit-scrollbar-thumb {
-  background: #00d4ff;
-  border-radius: 6px;
+  background: var(--hairline);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #0affed;
+  background: var(--coral);
 }

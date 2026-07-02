@@ -11,6 +11,10 @@ import java.util.UUID;
  * Lightweight projection of a concert for list/carousel views.
  * Aggregates summary statistics (available seats, price range, zone count)
  * so the client doesn't need to fetch full seat details for each card.
+ * <p>
+ * The {@code city}, {@code artist}, and {@code ticketStatus} fields power
+ * the Editorial Music Discovery UI groupings (by city, headline artist,
+ * and sales-state badge).
  */
 @Data
 @Builder
@@ -28,4 +32,7 @@ public class ConcertSummaryResponse {
     private double maxPrice;
     private int zoneCount;
     private String imageUrl;
+    private String city;
+    private String artist;
+    private TicketStatus ticketStatus;
 }

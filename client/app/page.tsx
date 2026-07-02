@@ -1,759 +1,216 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useQuery } from '@apollo/client/react';
 import { gql } from '@apollo/client';
-import { useQuery, useMutation, useSubscription } from '@apollo/client/react';
 import { useAuth } from './context/AuthContext';
-import { AlertCircle, CheckCircle } from 'lucide-react';
-import { motion } from 'framer-motion';
-import {
-  EventDetail,
-  CheckoutFlow,
-  AlertManager,
-} from './components';
-import { EventCarousel } from '@/components/EventCarousel';
-import { HeroSection } from '@/components/HeroSection';
 import { Navbar } from '@/components/Navbar';
 import { MobileMenu } from '@/components/MobileMenu';
-import { NeonPulseButton } from '@/components/NeonPulseButton';
-import { ElectricInput } from '@/components/ElectricInput';
-import { LoadingSpinner } from '@/components/LoadingSpinner';
-import ELECTRIC_RUSH, { GRADIENTS } from '@/lib/design-tokens';
+import { HeroSection } from '@/components/HeroSection';
+import { TimeBucket } from '@/components/TimeBucket';
+import { FeaturedEvent } from '@/components/FeaturedEvent';
+import { Footer } from '@/components/Footer';
+import { AuthScreen } from './components/AuthScreen';
+import { BookingFlow } from './components/BookingFlow';
 
-// Type definitions
-interface Seat {
-  id: string;
-  seatNumber: string;
-  status: string;
-  heldByUserId?: string;
-  heldUntil?: string;
-  zoneName?: string;
-  price?: number;
-  zoneId?: string;
-  bookingId?: string;
-  expiresAt?: string;
-}
+import type { EditorialEvent } from '@/components/EventRow';
+import { formatDateBucket } from '@/lib/design-tokens';
 
-interface SeatUpdate {
-  seatId: string;
-  status: string;
-  heldByUserId?: string;
-}
+// ============================================================
+// GRAPHQL
+// ============================================================
 
-interface LoginResult {
-  token: string;
-  user: {
-    id: string;
-    email: string;
-    roles: string[];
-  };
-}
-
-interface HoldSeatResult {
-  id: string;
-  expiresAt: string;
-}
-
-interface PaymentResult {
-  paymentReference: string;
-}
-
-interface Zone {
-  id: string;
-  name: string;
-  price: number;
-  totalSeats: number;
-  seats: Seat[];
-}
-
-interface Concert {
-  id: string;
-  title: string;
-  description?: string;
-  venue?: string;
-  startTime?: string;
-  imageUrl?: string;
-  ticketsSold?: number;
-  totalTickets?: number;
-  status?: string;
-  minPrice?: number;
-  availableSeats?: number;
-  zones?: Zone[];
-}
-
-interface GraphQLData {
-  [key: string]: unknown;
-}
-
-// GraphQL Queries & Mutations
-
-// Simple hash function for deterministic pseudo-random values (avoids Math.random in render)
-function hashString(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash) / 2147483647;
-}
-const GET_CONCERT_DETAIL = gql`
-  query GetConcertDetail($concertId: ID!) {
-    getConcertDetail(concertId: $concertId) {
-      id
-      title
-      venue
-      startTime
-      status
-      zones {
-        id
-        name
-        price
-        totalSeats
-        seats {
-          id
-          seatNumber
-          status
-          heldByUserId
-          heldUntil
-        }
-      }
-    }
-  }
-`;
-
-const HOLD_SEAT = gql`
-  mutation HoldSeat($seatId: ID!) {
-    holdSeat(seatId: $seatId) {
-      id
-      status
-      totalPrice
-      expiresAt
-    }
-  }
-`;
-
-const SEAT_STATUS_UPDATED = gql`
-  subscription OnSeatStatusUpdated($concertId: ID!) {
-    seatStatusUpdated(concertId: $concertId) {
-      seatId
-      concertId
-      status
-      heldByUserId
-    }
-  }
-`;
-
-const REGISTER = gql`
-  mutation Register($email: String!, $password: String!) {
-    register(input: { email: $email, password: $password, roles: ["ROLE_USER"] }) {
-      id
-      email
-    }
-  }
-`;
-
-const LOGIN = gql`
-  mutation Login($email: String!, $password: String!) {
-    login(input: { email: $email, password: $password }) {
-      token
-      user {
-        id
-        email
-        roles
-      }
-    }
-  }
-`;
-
-// Get list of concerts (replaces MOCK_EVENTS)
 const GET_CONCERTS = gql`
-  query GetConcerts($status: String, $limit: Int) {
-    getConcerts(status: $status, limit: $limit) {
+  query GetConcerts($limit: Int) {
+    getConcerts(limit: $limit) {
       id
       title
-      description
+      artist
+      city
       venue
       startTime
-      status
-      availableSeats
       minPrice
-      maxPrice
-      zoneCount
+      availableSeats
       imageUrl
+      ticketStatus
     }
-    getFeaturedConcerts(limit: 8) {
+    getFeaturedConcerts(limit: 1) {
       id
       title
-      description
+      artist
+      city
       venue
       startTime
-      status
-      availableSeats
       minPrice
-      maxPrice
-      zoneCount
+      availableSeats
       imageUrl
+      ticketStatus
     }
   }
 `;
 
-// Real payment mutation (replaces handleSimulatePayment fake)
-const CONFIRM_PAYMENT = gql`
-  mutation ConfirmPayment($orderId: ID!, $paymentMethod: PaymentMethod!) {
-    confirmPayment(orderId: $orderId, paymentMethod: $paymentMethod) {
-      order {
-        id
-        status
-        totalPrice
-        expiresAt
-      }
-      ticket {
-        id
-        ticketCode
-      }
-      paymentReference
-      paymentMethod
-      paidAt
-      totalPrice
-    }
-  }
-`;
+// FALLBACK_EVENTS removed - using empty state UI
 
-// Cancel order mutation (unused - reserved for future implementation)
-// const CANCEL_ORDER = gql`
-//   mutation CancelOrder($orderId: ID!) {
-//     cancelOrder(orderId: $orderId) {
-//       id
-//       status
-//     }
-//   }
-// `;
-
-// Mock Concert ID for testing
-// Must match seeded DB concert UUID: 00000000-0000-0000-0000-000000000001
-const MOCK_CONCERT_ID = "00000000-0000-0000-0000-000000000001";
-
-// Mock Events Data
-const MOCK_EVENTS = [
-  {
-    id: 'evt-001',
-    title: 'BlackPink World Tour',
-    venue: 'My Dinh National Stadium',
-    date: '2026-08-15',
-    price: 2500000,
-    rating: 4.9,
-    reviewsCount: 3847,
-    ticketsAvailable: 42,
-    imageUrl: 'https://picsum.photos/seed/blackpink/800/600',
-    category: 'concert' as const,
-  },
-  {
-    id: 'evt-002',
-    title: 'Ho Tram Music Festival',
-    venue: 'Ho Tram Beach',
-    date: '2026-07-20',
-    price: 1800000,
-    rating: 4.7,
-    reviewsCount: 2156,
-    ticketsAvailable: 156,
-    imageUrl: 'https://picsum.photos/seed/festival/800/600',
-    category: 'festival' as const,
-  },
-  {
-    id: 'evt-003',
-    title: 'Hoai Linh Comedy Show',
-    venue: 'Saigon Opera House',
-    date: '2026-07-05',
-    price: 800000,
-    rating: 4.8,
-    reviewsCount: 1523,
-    ticketsAvailable: 234,
-    imageUrl: 'https://picsum.photos/seed/comedy/800/600',
-    category: 'comedy' as const,
-  },
-  {
-    id: 'evt-004',
-    title: 'Son Tung M-TP Sky Tour',
-    venue: 'Hanoi Indoor Games Gymnasium',
-    date: '2026-08-28',
-    price: 3200000,
-    rating: 4.9,
-    reviewsCount: 5682,
-    ticketsAvailable: 18,
-    imageUrl: 'https://picsum.photos/seed/sontung/800/600',
-    category: 'concert' as const,
-  },
-  {
-    id: 'evt-005',
-    title: 'Vietnam vs Thailand',
-    venue: 'Thong Nhat Stadium',
-    date: '2026-09-12',
-    price: 500000,
-    rating: 4.6,
-    reviewsCount: 892,
-    ticketsAvailable: 450,
-    imageUrl: 'https://picsum.photos/seed/football/800/600',
-    category: 'sports' as const,
-  },
-  {
-    id: 'evt-006',
-    title: 'Monsoon Music Festival',
-    venue: 'Hanoi Opera House',
-    date: '2026-10-03',
-    price: 1500000,
-    rating: 4.8,
-    reviewsCount: 2341,
-    ticketsAvailable: 89,
-    imageUrl: 'https://picsum.photos/seed/monsoon/800/600',
-    category: 'festival' as const,
-  },
-  {
-    id: 'evt-007',
-    title: 'Den Vau Live in Saigon',
-    venue: 'The Reverie Saigon',
-    date: '2026-07-18',
-    price: 1200000,
-    rating: 4.7,
-    reviewsCount: 1678,
-    ticketsAvailable: 112,
-    imageUrl: 'https://picsum.photos/seed/denvau/800/600',
-    category: 'concert' as const,
-  },
-  {
-    id: 'evt-008',
-    title: 'Hoa Minzy Solo Concert',
-    venue: 'Phu Tho Stadium',
-    date: '2026-09-25',
-    price: 950000,
-    rating: 4.5,
-    reviewsCount: 987,
-    ticketsAvailable: 276,
-    imageUrl: 'https://picsum.photos/seed/hoaminzy/800/600',
-    category: 'concert' as const,
-  },
-];
+// ============================================================
+// PAGE
+// ============================================================
 
 export default function Home() {
-  const { token, user, login, logout } = useAuth();
+  const { token, user, logout } = useAuth();
 
-  // Mobile menu state
+  // UI state
+  const [selectedCity, setSelectedCity] = useState<'Hà Nội' | 'Sài Gòn' | 'Đà Nẵng'>('Sài Gòn');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [bookingEventId, setBookingEventId] = useState<string | null>(null);
 
-  // Auth Form State
-  const [isRegister, setIsRegister] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [authError, setAuthError] = useState('');
-  const [authSuccess, setAuthSuccess] = useState('');
-
-  // Selected seat state
-  const [selectedSeat, setSelectedSeat] = useState<Seat | null>(null);
-  // localSeatsMap is now computed from useMemo, no longer needs state
-  // const [currentZoneId, setCurrentZoneId] = useState<string | null>(null); // Unused
-
-  // Payment flow state
-  const [paymentStep, setPaymentStep] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
-
-  // Alerts (in-app notifications)
-  const [alerts, setAlerts] = useState<Array<{ id: string; type: 'success' | 'error' | 'info'; message: string }>>([]);
-
-  // GraphQL operations
-  const { data, loading, error, refetch } = useQuery(GET_CONCERT_DETAIL, {
-    variables: { concertId: MOCK_CONCERT_ID },
+  // GraphQL
+  const { data } = useQuery(GET_CONCERTS, {
+    variables: { limit: 12 },
     skip: !token,
   });
 
-  // Fetch list of concerts for the carousel (replaces MOCK_EVENTS)
-  const { data: concertsData } = useQuery(GET_CONCERTS, {
-    variables: { limit: 8 },
-    skip: !token,
-  });
-
-  // Transform ConcertSummary → EventCard event format
-  const liveEvents = useMemo(() => {
-    const concerts = ((concertsData as GraphQLData)?.getFeaturedConcerts || []) as Concert[];
-    return concerts.map((c: Concert) => ({
+  // Map GraphQL → EditorialEvent
+  const allEvents = useMemo<EditorialEvent[]>(() => {
+    type Raw = {
+      id: string;
+      title: string;
+      artist?: string;
+      city?: string;
+      venue: string;
+      startTime: string;
+      minPrice: number;
+      availableSeats: number;
+      imageUrl?: string;
+      ticketStatus?: 'ON_SALE' | 'SOLD_OUT' | 'COMING_SOON';
+    };
+    const concerts = (data as { getConcerts?: Raw[] } | undefined)?.getConcerts;
+    if (!concerts || concerts.length === 0) return [];
+    return concerts.map((c) => ({
       id: c.id,
-      title: c.title || '',
-      venue: c.venue || 'TBD',
-      date: c.startTime || 'TBA',
-      price: c.minPrice || 0,
-      rating: 4.5 + hashString(c.id) * 0.5, // Simulated — not in ConcertSummary yet
-      reviewsCount: Math.floor(500 + hashString(c.id + 'reviews') * 5000), // Simulated
-      ticketsAvailable: c.availableSeats || 0,
-      imageUrl: c.imageUrl || `https://picsum.photos/seed/${c.id}/800/600`,
-      category: 'concert' as const,
+      title: c.title,
+      artist: c.artist ?? c.title,
+      venue: c.venue,
+      startTime: c.startTime,
+      minPrice: c.minPrice,
+      availableSeats: c.availableSeats,
+      imageUrl: c.imageUrl,
+      ticketStatus: c.ticketStatus ?? 'ON_SALE',
+      city: c.city ?? 'Sài Gòn',
     }));
-  }, [concertsData]);
+  }, [data]);
 
-  const [holdSeatMutation] = useMutation(HOLD_SEAT);
-  const [registerMutation, { loading: registerLoading }] = useMutation(REGISTER);
-  const [loginMutation, { loading: loginLoading }] = useMutation(LOGIN);
-  const [confirmPaymentMutation, { loading: paymentLoading }] = useMutation(CONFIRM_PAYMENT);
-  // const [cancelOrderMutation] = useMutation(CANCEL_ORDER); // Unused
-
-  const { data: subscriptionData } = useSubscription(SEAT_STATUS_UPDATED, {
-    variables: { concertId: MOCK_CONCERT_ID },
-    skip: !token,
-  });
-
-  // Extract concert detail for use in JSX
-  const concertDetail = (data as GraphQLData)?.getConcertDetail as Concert | undefined;
-
-  // Compute base seats map from GraphQL data
-  const baseSeatsMap = useMemo(() => {
-    const seatsMap: Record<string, Seat> = {};
-    if (concertDetail?.zones) {
-      concertDetail.zones.forEach((zone: Zone) => {
-        zone.seats.forEach((seat: Seat) => {
-          seatsMap[seat.id] = { ...seat, zoneId: zone.id, zoneName: zone.name, price: zone.price };
-        });
-      });
-    }
-    return seatsMap;
-  }, [concertDetail]);
-
-  // Derive seat updates directly from subscription data (no useEffect needed)
-  const localSeatsMap = useMemo(() => {
-    const merged = { ...baseSeatsMap };
-    
-    // Apply real-time subscription update if present
-    const update = (subscriptionData as GraphQLData)?.seatStatusUpdated as SeatUpdate | undefined;
-    if (update && merged[update.seatId]) {
-      merged[update.seatId] = {
-        ...merged[update.seatId],
-        status: update.status,
-        heldByUserId: update.heldByUserId,
+  const featuredEvent = useMemo<EditorialEvent | null>(() => {
+    type Raw = {
+      id: string;
+      title: string;
+      artist?: string;
+      city?: string;
+      venue: string;
+      startTime: string;
+      minPrice: number;
+      availableSeats: number;
+      imageUrl?: string;
+      ticketStatus?: 'ON_SALE' | 'SOLD_OUT' | 'COMING_SOON';
+    };
+    const f = (data as { getFeaturedConcerts?: Raw[] } | undefined)?.getFeaturedConcerts?.[0];
+    if (f) {
+      return {
+        id: f.id,
+        title: f.title,
+        artist: f.artist ?? f.title,
+        venue: f.venue,
+        startTime: f.startTime,
+        minPrice: f.minPrice,
+        availableSeats: f.availableSeats,
+        imageUrl: f.imageUrl,
+        ticketStatus: f.ticketStatus ?? 'ON_SALE',
+        city: f.city ?? 'Sài Gòn',
       };
     }
-    
-    return merged;
-  }, [baseSeatsMap, subscriptionData]);
+    return null;
+  }, [data]);
 
-  // Alert management
-  const addAlert = (type: 'success' | 'error' | 'info', message: string) => {
-    const id = Math.random().toString(36);
-    setAlerts((prev) => [...prev, { id, type, message }]);
-    setTimeout(() => {
-      setAlerts((prev) => prev.filter((a) => a.id !== id));
-    }, 4000);
-  };
+  // Filter by city + bucket
+  const cityEvents = useMemo(
+    () => allEvents.filter((e) => e.city === selectedCity),
+    [allEvents, selectedCity],
+  );
 
-  // Auth handlers
-  const handleAuth = async () => {
-    setAuthError('');
-    setAuthSuccess('');
-
-    try {
-      if (isRegister) {
-        const { data } = await registerMutation({ variables: { email, password } });
-        if ((data as GraphQLData)?.register) {
-          setAuthSuccess('Registration successful! Please login.');
-          setIsRegister(false);
-        }
-      } else {
-        const { data } = await loginMutation({ variables: { email, password } });
-        const result = (data as GraphQLData)?.login as LoginResult | undefined;
-        if (result) {
-          login(result.token, result.user);
-          setAuthSuccess('Login successful!');
-        }
-      }
-    } catch (err: unknown) {
-      setAuthError((err as Error).message || 'Authentication failed');
+  const buckets = useMemo(() => {
+    const tonight: EditorialEvent[] = [];
+    const weekend: EditorialEvent[] = [];
+    const onSale: EditorialEvent[] = [];
+    for (const e of cityEvents) {
+      const b = formatDateBucket(e.startTime);
+      if (b === 'TONIGHT') tonight.push(e);
+      else if (b === 'WEEKEND') weekend.push(e);
+      else onSale.push(e);
     }
-  };
+    return { tonight, weekend, onSale };
+  }, [cityEvents]);
 
-  // Seat booking handlers
-  const handleHoldSeat = async (seatId: string) => {
-    try {
-      const { data } = await holdSeatMutation({ variables: { seatId } });
-      const result = (data as GraphQLData)?.holdSeat as HoldSeatResult | undefined;
-      if (result) {
-        setSelectedSeat({ ...localSeatsMap[seatId], bookingId: result.id, expiresAt: result.expiresAt });
-        addAlert('success', 'Seat held successfully!');
-      }
-    } catch (err: unknown) {
-      addAlert('error', (err as Error).message || 'Failed to hold seat');
-    }
-  };
-
-
-  // Real payment handler — calls confirmPayment mutation
-  const handleSimulatePayment = async () => {
-    if (!selectedSeat?.bookingId || !selectedPaymentMethod) {
-      addAlert('error', 'Missing order ID or payment method');
-      return;
-    }
-
-    try {
-      const { data: result } = await confirmPaymentMutation({
-        variables: {
-          orderId: selectedSeat.bookingId,
-          paymentMethod: selectedPaymentMethod.toUpperCase().replace('-', '_'),
-        },
-      });
-
-      const paymentResult = (result as GraphQLData)?.confirmPayment as PaymentResult | undefined;
-      if (paymentResult) {
-        setPaymentSuccess(true);
-        addAlert('success', `Payment successful! Ref: ${paymentResult.paymentReference}`);
-      }
-    } catch (err: unknown) {
-      addAlert('error', (err as Error).message || 'Payment failed. Please try again.');
-    }
-  };
-
-
-  const handleReset = () => {
-    setSelectedSeat(null);
-    setPaymentStep(false);
-    setPaymentSuccess(false);
-    setSelectedPaymentMethod(null);
-    refetch();
-  };
-
-  // ============================================================
-  // AUTH SCREEN (if not logged in)
-  // ============================================================
-
+  // Auth gate
   if (!token) {
+    return <AuthScreen />;
+  }
+
+  // Booking flow overlay
+  if (bookingEventId) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: ELECTRIC_RUSH.colors.offBlack }}>
-        {(registerLoading || loginLoading) && <LoadingSpinner fullScreen message="Authenticating..." />}
-        
-        <motion.div
-          className="w-full max-w-md rounded-2xl p-8"
-          style={{
-            background: `linear-gradient(135deg, ${ELECTRIC_RUSH.colors.surfaceDark}95, ${ELECTRIC_RUSH.colors.offBlack}90)`,
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: `1px solid ${ELECTRIC_RUSH.colors.electricBlue}30`,
-          }}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <h1
-            className="text-3xl font-black tracking-tighter text-center mb-2"
-            style={{
-              background: GRADIENTS.textElectric,
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              fontFamily: ELECTRIC_RUSH.typography.display,
-            }}
-          >
-            TICKETRUSH
-          </h1>
-          <p className="text-center text-sm mb-8" style={{ color: ELECTRIC_RUSH.colors.textSecondary }}>
-            {isRegister ? 'Create your account' : 'Welcome back'}
-          </p>
-
-          <div className="space-y-4">
-            <ElectricInput
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              error={authError && authError.includes('email') ? authError : undefined}
-            />
-            <ElectricInput
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              error={authError && authError.includes('password') ? authError : undefined}
-            />
-
-            {authError && !authError.includes('email') && !authError.includes('password') && (
-              <div className="flex items-center gap-2 p-3 rounded-lg" style={{ background: `${ELECTRIC_RUSH.colors.error}10` }}>
-                <AlertCircle size={16} style={{ color: ELECTRIC_RUSH.colors.error }} />
-                <span className="text-sm" style={{ color: ELECTRIC_RUSH.colors.error }}>{authError}</span>
-              </div>
-            )}
-
-            {authSuccess && (
-              <div className="flex items-center gap-2 p-3 rounded-lg" style={{ background: `${ELECTRIC_RUSH.colors.success}10` }}>
-                <CheckCircle size={16} style={{ color: ELECTRIC_RUSH.colors.success }} />
-                <span className="text-sm" style={{ color: ELECTRIC_RUSH.colors.success }}>{authSuccess}</span>
-              </div>
-            )}
-
-            <NeonPulseButton
-              variant="primary"
-              size="lg"
-              fullWidth
-              onClick={handleAuth}
-              isLoading={registerLoading || loginLoading}
-            >
-              {isRegister ? 'Register' : 'Login'}
-            </NeonPulseButton>
-
-            <NeonPulseButton
-              variant="ghost"
-              size="md"
-              fullWidth
-              onClick={() => {
-                setIsRegister(!isRegister);
-                setAuthError('');
-                setAuthSuccess('');
-              }}
-            >
-              {isRegister ? 'Already have an account? Login' : "Don't have an account? Register"}
-            </NeonPulseButton>
-          </div>
-        </motion.div>
-      </div>
+      <BookingFlow
+        eventId={bookingEventId}
+        onBack={() => setBookingEventId(null)}
+      />
     );
   }
 
-  // ============================================================
-  // MAIN APP (logged in)
-  // ============================================================
-
   return (
-    <div className="min-h-screen" style={{ background: ELECTRIC_RUSH.colors.offBlack }}>
-      {/* Navbar */}
+    <div className="min-h-screen flex flex-col bg-ink text-paper">
       <Navbar
         user={user}
-        onLogout={logout}
-        onMobileMenuToggle={setIsMobileMenuOpen}
+        onLogoutClick={logout}
+        onMenuClick={() => setIsMobileMenuOpen((v) => !v)}
       />
-
-      {/* Mobile Menu */}
       <MobileMenu
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
         user={user}
-        onLogout={logout}
+        onLogoutClick={logout}
       />
 
-      {/* Alert Manager */}
-      <AlertManager alerts={alerts} onDismiss={(id) => setAlerts((prev) => prev.filter((a) => a.id !== id))} />
+      <main className="flex-1">
+        <HeroSection
+          city={selectedCity}
+          timeBucket="TỐI NAY"
+          eventCount={buckets.tonight.length + buckets.weekend.length}
+          onCityChange={setSelectedCity}
+        />
 
-      {/* Hero Section */}
-      <HeroSection
-        onDiscoverClick={() => addAlert('info', 'Scrolling to events...')}
-        onWishlistClick={() => addAlert('info', 'Wishlist feature coming soon!')}
-      />
-
-      {/* Event Carousel */}
-      <EventCarousel
-        events={liveEvents.length > 0 ? liveEvents : MOCK_EVENTS}
-        onEventSelect={(eventId: string) => addAlert('info', `Viewing event: ${eventId}`)}
-        onEventWishlist={(eventId: string) => addAlert('info', `Added event ${eventId} to wishlist`)}
-      />
-
-      {/* Main Content - Seat Booking & Checkout */}
-      <motion.div
-        className="max-w-7xl mx-auto px-6 py-20"
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        transition={{ duration: 0.6 }}
-        viewport={{ once: true }}
-      >
-        {loading && <LoadingSpinner size="lg" message="Loading concert details..." />}
-        
-        {error && (
-          <div className="flex items-center justify-center gap-3 p-6 rounded-xl" style={{ background: `${ELECTRIC_RUSH.colors.error}10` }}>
-            <AlertCircle size={24} style={{ color: ELECTRIC_RUSH.colors.error }} />
-            <span style={{ color: ELECTRIC_RUSH.colors.error }}>Error: {error.message}</span>
-          </div>
-        )}
-
-        {!paymentSuccess && !paymentStep && !!data && (
-          <EventDetail
-            eventTitle={concertDetail?.title || 'Live Concert'}
-            venue={concertDetail?.venue}
-            date={concertDetail?.startTime}
-            seats={Object.values(localSeatsMap)}
-            selectedSeat={selectedSeat}
-            currentUserId={user?.id}
-            onSeatSelect={(seatId: string) => handleHoldSeat(seatId)}
-            onSeatUnselect={() => setSelectedSeat(null)}
+        {featuredEvent && (
+          <FeaturedEvent
+            event={featuredEvent}
+            onSelect={setBookingEventId}
           />
         )}
 
-        {paymentStep && selectedSeat && (
-          <CheckoutFlow
-            selectedSeat={selectedSeat}
-            orderTotal={selectedSeat.price ?? 0}
-            onPaymentMethodSelect={setSelectedPaymentMethod}
-            onConfirmPayment={handleSimulatePayment}
-            isLoading={paymentLoading}
-            paymentSuccess={paymentSuccess}
-          />
-        )}
+        <TimeBucket
+          title="TỐI NAY"
+          events={buckets.tonight}
+          onEventSelect={setBookingEventId}
+        />
+        <TimeBucket
+          title="CUỐI TUẦN"
+          events={buckets.weekend}
+          onEventSelect={setBookingEventId}
+        />
+        <TimeBucket
+          title="ĐANG MỞ BÁN"
+          events={buckets.onSale}
+          onEventSelect={setBookingEventId}
+        />
+      </main>
 
-        {paymentSuccess && (
-          <motion.div
-            className="text-center"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-          >
-            <div className="mb-8">
-              <NeonPulseButton
-                variant="primary"
-                size="lg"
-                onClick={handleReset}
-              >
-                Book Another Ticket
-              </NeonPulseButton>
-            </div>
-          </motion.div>
-        )}
-      </motion.div>
-
-      {/* Footer */}
-      <footer className="relative border-t border-zinc-800/60 mt-20 py-16 overflow-hidden">
-        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[400px] h-[200px] bg-gradient-to-b from-electric-blue/5 to-transparent blur-[80px] pointer-events-none" />
-
-        <div className="relative max-w-7xl mx-auto px-6">
-          <div className="mb-10">
-            <h3 className="font-display text-4xl sm:text-5xl font-black tracking-tighter leading-[0.9]">
-              <span className="bg-gradient-to-r from-electric-blue via-hot-magenta to-lime-rush bg-clip-text text-transparent">
-                SEE YOU IN THE PIT
-              </span>
-            </h3>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-8">
-            <div className="flex flex-wrap gap-x-8 gap-y-2">
-              <a href="#" className="text-zinc-600 hover:text-electric-blue text-sm font-mono uppercase tracking-wider transition-colors">
-                Instagram
-              </a>
-              <a href="#" className="text-zinc-600 hover:text-hot-magenta text-sm font-mono uppercase tracking-wider transition-colors">
-                Twitter / X
-              </a>
-              <a href="#" className="text-zinc-600 hover:text-lime-rush text-sm font-mono uppercase tracking-wider transition-colors">
-                Discord
-              </a>
-              <a href="#" className="text-zinc-600 hover:text-zinc-400 text-sm font-mono uppercase tracking-wider transition-colors">
-                Privacy
-              </a>
-              <a href="#" className="text-zinc-600 hover:text-zinc-400 text-sm font-mono uppercase tracking-wider transition-colors">
-                Terms
-              </a>
-            </div>
-
-            <p className="font-mono text-[10px] text-zinc-800 uppercase tracking-[0.2em] whitespace-nowrap">
-              NO SERVICE FEES. NO BOTS. JUST NOISE.
-            </p>
-          </div>
-
-          <div className="mt-10 pt-6 border-t border-zinc-800/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-            <p className="font-mono text-[10px] text-zinc-800">
-              TICKETRUSH // 2026
-            </p>
-            <p className="font-mono text-[10px] text-zinc-800">
-              BUILT WITH SPRING BOOT + NEXT.JS + CAFFEINE
-            </p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 package com.ticketrush.server.infrastructure.seeding;
 
+import com.ticketrush.server.domain.concert.TicketStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
@@ -12,6 +13,11 @@ import java.util.UUID;
  * Seeds the database with 8 Vietnamese concerts on first startup.
  * Delegates the actual seeding to {@link ConcertSeederService} so that
  * the @Transactional method is called through Spring's AOP proxy.
+ * <p>
+ * Seed data covers the three launch cities for the Editorial Music
+ * Discovery UI (Hà Nội, Sài Gòn, Đà Nẵng) and a mix of
+ * {@link TicketStatus} values (ON_SALE, SOLD_OUT, COMING_SOON) so the
+ * homepage groupings are populated end-to-end.
  */
 @Component
 @Slf4j
@@ -37,7 +43,10 @@ public class DatabaseSeeder implements CommandLineRunner {
                     30,
                     new BigDecimal("1500000"),
                     new BigDecimal("2500000"),
-                    100, 300, 200),
+                    100, 300, 200,
+                    "Hà Nội",
+                    "BLACKPINK",
+                    TicketStatus.ON_SALE),
             new ConcertSeedData(
                     UUID.fromString("00000000-0000-0000-0000-000000000002"),
                     "Ho Tram Music Festival",
@@ -45,7 +54,10 @@ public class DatabaseSeeder implements CommandLineRunner {
                     20,
                     new BigDecimal("1200000"),
                     new BigDecimal("1800000"),
-                    80, 250, 200),
+                    80, 250, 200,
+                    "Sài Gòn",
+                    "SOÁI NHIỄM",
+                    TicketStatus.ON_SALE),
             new ConcertSeedData(
                     UUID.fromString("00000000-0000-0000-0000-000000000003"),
                     "Hoai Linh Comedy Show",
@@ -53,7 +65,10 @@ public class DatabaseSeeder implements CommandLineRunner {
                     5,
                     new BigDecimal("500000"),
                     new BigDecimal("800000"),
-                    50, 200, 150),
+                    50, 200, 150,
+                    "Sài Gòn",
+                    "Hoài Linh",
+                    TicketStatus.SOLD_OUT),
             new ConcertSeedData(
                     UUID.fromString("00000000-0000-0000-0000-000000000004"),
                     "Son Tung M-TP Sky Tour",
@@ -61,7 +76,10 @@ public class DatabaseSeeder implements CommandLineRunner {
                     43,
                     new BigDecimal("2000000"),
                     new BigDecimal("3200000"),
-                    200, 500, 300),
+                    200, 500, 300,
+                    "Hà Nội",
+                    "Sơn Tùng M-TP",
+                    TicketStatus.ON_SALE),
             new ConcertSeedData(
                     UUID.fromString("00000000-0000-0000-0000-000000000005"),
                     "Vietnam vs Thailand",
@@ -69,7 +87,10 @@ public class DatabaseSeeder implements CommandLineRunner {
                     58,
                     new BigDecimal("200000"),
                     new BigDecimal("500000"),
-                    50, 250, 200),
+                    50, 250, 200,
+                    "Hà Nội",
+                    "Đội Tuyển Việt Nam",
+                    TicketStatus.COMING_SOON),
             new ConcertSeedData(
                     UUID.fromString("00000000-0000-0000-0000-000000000006"),
                     "Monsoon Music Festival",
@@ -77,7 +98,10 @@ public class DatabaseSeeder implements CommandLineRunner {
                     78,
                     new BigDecimal("900000"),
                     new BigDecimal("1500000"),
-                    120, 400, 250),
+                    120, 400, 250,
+                    "Hà Nội",
+                    "Ngọt & Da LAB",
+                    TicketStatus.ON_SALE),
             new ConcertSeedData(
                     UUID.fromString("00000000-0000-0000-0000-000000000007"),
                     "Den Vau Live in Saigon",
@@ -85,15 +109,21 @@ public class DatabaseSeeder implements CommandLineRunner {
                     18,
                     new BigDecimal("800000"),
                     new BigDecimal("1200000"),
-                    80, 250, 200),
+                    80, 250, 200,
+                    "Sài Gòn",
+                    "Đen Vâu",
+                    TicketStatus.SOLD_OUT),
             new ConcertSeedData(
                     UUID.fromString("00000000-0000-0000-0000-000000000008"),
-                    "Hoa Minzy Solo Concert",
-                    "Phu Tho Stadium",
+                    "Da Nang Beach Concert",
+                    "Bien Dong Park",
                     71,
                     new BigDecimal("600000"),
                     new BigDecimal("950000"),
-                    60, 200, 150));
+                    60, 200, 150,
+                    "Đà Nẵng",
+                    "Hoa Minzy",
+                    TicketStatus.COMING_SOON));
 
     @Override
     public void run(String... args) {
@@ -117,7 +147,10 @@ public class DatabaseSeeder implements CommandLineRunner {
                         data.maxPrice(),
                         data.vipSeats(),
                         data.standardSeats(),
-                        data.economySeats());
+                        data.economySeats(),
+                        data.city(),
+                        data.artist(),
+                        data.ticketStatus());
             } catch (Exception e) {
                 log.error("Failed to seed concert '{}': {}", data.title(), e.getMessage());
                 failed++;
@@ -151,5 +184,8 @@ public class DatabaseSeeder implements CommandLineRunner {
             BigDecimal maxPrice,
             int vipSeats,
             int standardSeats,
-            int economySeats) {}
+            int economySeats,
+            String city,
+            String artist,
+            TicketStatus ticketStatus) {}
 }

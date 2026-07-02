@@ -3,13 +3,9 @@ import "./globals.css";
 import { AuthProvider } from "./context/AuthContext";
 import { ApolloWrapper } from "./context/ApolloWrapper";
 
-// Note: Using system fonts as fallback due to network restrictions
-// The design system (design-tokens.ts) already specifies Space Grotesk, Inter, and Inter Mono
-// which should be loaded via CDN in production or installed locally
-
 export const metadata: Metadata = {
-  title: "TicketRush - Concert Ticketing High-Throughput Platform",
-  description: "Real-time ticket booking experience built with Spring Boot, WebSockets & Next.js.",
+  title: "TicketRush — Âm nhạc Việt Nam",
+  description: "Đặt vé concert trực tiếp. Không phải qua app generic nào khác.",
 };
 
 export default function RootLayout({
@@ -18,14 +14,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className="h-full antialiased"
-      style={{
-        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      }}
-    >
-      <body className="min-h-full flex flex-col bg-dark-bg text-zinc-100">
+    <html lang="vi" className="h-full antialiased">
+      <body className="min-h-full flex flex-col bg-ink text-paper font-body">
         <AuthProvider>
           <ApolloWrapper>
             {children}

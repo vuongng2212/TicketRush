@@ -6,6 +6,7 @@ import com.ticketrush.server.domain.concert.Seat;
 import com.ticketrush.server.domain.concert.SeatRepository;
 import com.ticketrush.server.domain.concert.SeatZone;
 import com.ticketrush.server.domain.concert.SeatZoneRepository;
+import com.ticketrush.server.domain.concert.TicketStatus;
 import com.ticketrush.server.infrastructure.redis.RedisReservationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,7 +54,8 @@ class DatabaseSeederTest {
     void run_iteratesAll8Concerts() throws Exception {
         // Mock all 8 to "succeed" with 100 seats each
         when(seederService.seedConcert(any(UUID.class), any(), any(), any(Integer.class),
-                any(), any(), any(Integer.class), any(Integer.class), any(Integer.class)))
+                any(), any(), any(Integer.class), any(Integer.class), any(Integer.class),
+                any(), any(), any(TicketStatus.class)))
                 .thenReturn(100);
 
         databaseSeeder.run();
@@ -61,13 +63,15 @@ class DatabaseSeederTest {
         // Verify seederService.seedConcert was called 8 times (once per concert)
         verify(seederService, org.mockito.Mockito.times(8))
                 .seedConcert(any(UUID.class), any(), any(), any(Integer.class),
-                        any(), any(), any(Integer.class), any(Integer.class), any(Integer.class));
+                        any(), any(), any(Integer.class), any(Integer.class), any(Integer.class),
+                        any(), any(), any(TicketStatus.class));
 
         // Capture all calls and verify they're for the 8 expected concerts
         ArgumentCaptor<UUID> idCaptor = ArgumentCaptor.forClass(UUID.class);
         verify(seederService, org.mockito.Mockito.times(8))
                 .seedConcert(idCaptor.capture(), any(), any(), any(Integer.class),
-                        any(), any(), any(Integer.class), any(Integer.class), any(Integer.class));
+                        any(), any(), any(Integer.class), any(Integer.class), any(Integer.class),
+                        any(), any(), any(TicketStatus.class));
         List<UUID> calledIds = idCaptor.getAllValues();
         assertThat(calledIds).containsExactlyInAnyOrderElementsOf(SEED_CONCERT_IDS);
     }
@@ -76,7 +80,8 @@ class DatabaseSeederTest {
     void run_handlesIndividualConcertFailure() throws Exception {
         // First call throws, subsequent calls succeed
         when(seederService.seedConcert(any(UUID.class), any(), any(), any(Integer.class),
-                any(), any(), any(Integer.class), any(Integer.class), any(Integer.class)))
+                any(), any(), any(Integer.class), any(Integer.class), any(Integer.class),
+                any(), any(), any(TicketStatus.class)))
                 .thenThrow(new RuntimeException("seed failed"))
                 .thenReturn(100); // subsequent calls return 100
 
@@ -88,14 +93,16 @@ class DatabaseSeederTest {
         // All 8 concerts are still attempted
         verify(seederService, org.mockito.Mockito.times(8))
                 .seedConcert(any(UUID.class), any(), any(), any(Integer.class),
-                        any(), any(), any(Integer.class), any(Integer.class), any(Integer.class));
+                        any(), any(), any(Integer.class), any(Integer.class), any(Integer.class),
+                        any(), any(), any(TicketStatus.class));
     }
 
     @Test
     void run_skipsIfSeederReturnsZero() throws Exception {
         // All concerts return 0 (already seeded scenario)
         when(seederService.seedConcert(any(UUID.class), any(), any(), any(Integer.class),
-                any(), any(), any(Integer.class), any(Integer.class), any(Integer.class)))
+                any(), any(), any(Integer.class), any(Integer.class), any(Integer.class),
+                any(), any(), any(TicketStatus.class)))
                 .thenReturn(0);
 
         databaseSeeder.run();
@@ -103,6 +110,7 @@ class DatabaseSeederTest {
         // All 8 concerts are still attempted
         verify(seederService, org.mockito.Mockito.times(8))
                 .seedConcert(any(UUID.class), any(), any(), any(Integer.class),
-                        any(), any(), any(Integer.class), any(Integer.class), any(Integer.class));
+                        any(), any(), any(Integer.class), any(Integer.class), any(Integer.class),
+                        any(), any(), any(TicketStatus.class));
     }
 }

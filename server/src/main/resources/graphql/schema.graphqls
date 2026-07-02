@@ -38,6 +38,15 @@ type ConcertSummary {
     maxPrice: Float!
     zoneCount: Int!
     imageUrl: String
+    city: String!
+    artist: String!
+    ticketStatus: TicketStatus!
+}
+
+enum TicketStatus {
+    ON_SALE
+    SOLD_OUT
+    COMING_SOON
 }
 
 type SeatZoneDetail {
