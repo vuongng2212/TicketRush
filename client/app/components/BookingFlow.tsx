@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery } from '@apollo/client/react';
-import { useMutation } from '@apollo/client/react';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useSubscription } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import { useAuth } from '../context/AuthContext';
 // user is fetched for future "use user.email on receipt"; reserved for now
@@ -38,6 +37,16 @@ const CONFIRM_PAYMENT = gql`
   }
 `;
 
+const SEAT_STATUS_SUBSCRIPTION = gql`
+  subscription SeatStatusUpdated($concertId: ID!) {
+    seatStatusUpdated(concertId: $concertId) {
+      seatId
+      status
+      updatedAt
+    }
+  }
+`;
+
 interface BookingFlowProps {
   eventId: string;
   onBack: () => void;
@@ -56,11 +65,31 @@ export const BookingFlow = ({ eventId, onBack }: BookingFlowProps) => {
   const [holdSeat] = useMutation(HOLD_SEAT);
   const [confirmPayment, { loading: payLoading }] = useMutation(CONFIRM_PAYMENT);
 
+  // Subscribe to seat status updates
+  const { data: seatUpdate } = useSubscription(SEAT_STATUS_SUBSCRIPTION, {
+    variables: { concertId: eventId },
+  });
+
   const [seatInput, setSeatInput] = useState('');
   const [order, setOrder] = useState<{ id: string; totalPrice: number } | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<typeof PAYMENT_METHODS[number]['id'] | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Handle realtime seat updates - wrap in callback to satisfy linter
+  useEffect(() => {
+    if (!seatUpdate) return;
+    
+    const update = (seatUpdate as { seatStatusUpdated?: { seatId: string; status: string } } | undefined)?.seatStatusUpdated;
+    if (!update || update.seatId !== seatInput || update.status !== 'HELD') return;
+    
+    // Use setTimeout to defer setState and avoid cascading render warning
+    const timer = setTimeout(() => {
+      setError('VÉ ĐÃ BỊ GIỮ BỞI NGƯỜI KHÁC');
+    }, 0);
+    
+    return () => clearTimeout(timer);
+  }, [seatUpdate, seatInput]);
 
   const event = (data as { getConcertDetail?: { title: string; artist?: string; venue: string; startTime: string } } | undefined)?.getConcertDetail;
 

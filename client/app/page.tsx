@@ -49,108 +49,7 @@ const GET_CONCERTS = gql`
   }
 `;
 
-// ============================================================
-// FALLBACK (used when backend offline / dev mode)
-// ============================================================
-
-const FALLBACK_EVENTS: EditorialEvent[] = [
-  {
-    id: 'fb-001',
-    title: 'SOÁI NHIỄM',
-    artist: 'SOÁI NHIỄM',
-    venue: 'Nhà hát Bến Thành',
-    startTime: new Date(Date.now() + 4 * 3600 * 1000).toISOString(),
-    minPrice: 450000,
-    availableSeats: 23,
-    imageUrl: undefined,
-    ticketStatus: 'ON_SALE',
-    city: 'Sài Gòn',
-  },
-  {
-    id: 'fb-002',
-    title: 'W/N',
-    artist: 'W/N',
-    venue: 'Cargo Bar',
-    startTime: new Date(Date.now() + 6 * 3600 * 1000).toISOString(),
-    minPrice: 350000,
-    availableSeats: 89,
-    imageUrl: undefined,
-    ticketStatus: 'ON_SALE',
-    city: 'Sài Gòn',
-  },
-  {
-    id: 'fb-003',
-    title: 'ĐEN VÂU',
-    artist: 'Đen Vâu',
-    venue: 'The Reverie Saigon',
-    startTime: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
-    minPrice: 1200000,
-    availableSeats: 112,
-    imageUrl: undefined,
-    ticketStatus: 'ON_SALE',
-    city: 'Sài Gòn',
-  },
-  {
-    id: 'fb-004',
-    title: 'MỸ TÂM',
-    artist: 'Mỹ Tâm',
-    venue: 'Phú Thọ Indoor',
-    startTime: new Date(Date.now() + 36 * 3600 * 1000).toISOString(),
-    minPrice: 1800000,
-    availableSeats: 0,
-    imageUrl: undefined,
-    ticketStatus: 'SOLD_OUT',
-    city: 'Sài Gòn',
-  },
-  {
-    id: 'fb-005',
-    title: 'SON TÙNG M-TP',
-    artist: 'Sơn Tùng M-TP',
-    venue: 'Hà Nội Indoor Games Gymnasium',
-    startTime: new Date(Date.now() + 60 * 3600 * 1000).toISOString(),
-    minPrice: 2500000,
-    availableSeats: 0,
-    imageUrl: undefined,
-    ticketStatus: 'SOLD_OUT',
-    city: 'Hà Nội',
-  },
-  {
-    id: 'fb-006',
-    title: 'HOÀI LINH COMEDY',
-    artist: 'Hoài Linh',
-    venue: 'Saigon Opera House',
-    startTime: new Date(Date.now() + 84 * 3600 * 1000).toISOString(),
-    minPrice: 800000,
-    availableSeats: 234,
-    imageUrl: undefined,
-    ticketStatus: 'COMING_SOON',
-    city: 'Sài Gòn',
-  },
-  {
-    id: 'fb-007',
-    title: 'MONSOON MUSIC',
-    artist: 'Monsoon Music Festival',
-    venue: 'Hà Nội Opera House',
-    startTime: new Date(Date.now() + 96 * 3600 * 1000).toISOString(),
-    minPrice: 1500000,
-    availableSeats: 89,
-    imageUrl: undefined,
-    ticketStatus: 'ON_SALE',
-    city: 'Hà Nội',
-  },
-  {
-    id: 'fb-008',
-    title: 'ĐÀ NẴNG ROCK',
-    artist: 'Microwave',
-    venue: 'Cocobay Đà Nẵng',
-    startTime: new Date(Date.now() + 120 * 3600 * 1000).toISOString(),
-    minPrice: 600000,
-    availableSeats: 156,
-    imageUrl: undefined,
-    ticketStatus: 'ON_SALE',
-    city: 'Đà Nẵng',
-  },
-];
+// FALLBACK_EVENTS removed - using empty state UI
 
 // ============================================================
 // PAGE
@@ -170,7 +69,7 @@ export default function Home() {
     skip: !token,
   });
 
-  // Map GraphQL → EditorialEvent, fallback to FALLBACK_EVENTS
+  // Map GraphQL → EditorialEvent
   const allEvents = useMemo<EditorialEvent[]>(() => {
     type Raw = {
       id: string;
@@ -185,7 +84,7 @@ export default function Home() {
       ticketStatus?: 'ON_SALE' | 'SOLD_OUT' | 'COMING_SOON';
     };
     const concerts = (data as { getConcerts?: Raw[] } | undefined)?.getConcerts;
-    if (!concerts || concerts.length === 0) return FALLBACK_EVENTS;
+    if (!concerts || concerts.length === 0) return [];
     return concerts.map((c) => ({
       id: c.id,
       title: c.title,
@@ -228,7 +127,7 @@ export default function Home() {
         city: f.city ?? 'Sài Gòn',
       };
     }
-    return FALLBACK_EVENTS[0];
+    return null;
   }, [data]);
 
   // Filter by city + bucket

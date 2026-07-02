@@ -1,42 +1,11 @@
-import { NextResponse } from 'next/server';
-import path from 'path';
+import { NextRequest, NextResponse } from 'next/server';
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
+import { join } from 'path';
 
-// Define gRPC service and message types
-interface CheckInRequest {
-  ticketToken: string;
-  adminSecret: string;
-}
+// Load proto file
+const PROTO_PATH = join(process.cwd(), '..', 'server', 'src', 'main', 'proto', 'ticket.proto');
 
-interface CheckInResponse {
-  status: string;
-  ticketId?: string;
-  concertTitle?: string;
-  seatNumber?: string;
-  attendeeName?: string;
-  checkedInAt?: string;
-  error?: string;
-}
-
-interface TicketServiceClient extends grpc.Client {
-  CheckInTicket(
-    request: CheckInRequest,
-    callback: (error: grpc.ServiceError | null, response: CheckInResponse) => void
-  ): void;
-}
-
-interface TicketProto {
-  TicketService: new (
-    address: string,
-    credentials: grpc.ChannelCredentials
-  ) => TicketServiceClient;
-}
-
-// Paths to proto file
-const PROTO_PATH = path.join(process.cwd(), '../server/src/main/proto/ticket.proto');
-
-// Load protobuf
 const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
   keepCase: true,
   longs: String,
@@ -45,46 +14,113 @@ const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
   oneofs: true,
 });
 
-const ticketProto = (grpc.loadPackageDefinition(packageDefinition).ticket as unknown) as TicketProto;
+const protoDescriptor = grpc.loadPackageDefinition(packageDefinition) as {
+  ticket?: {
+    TicketService?: grpc.ServiceClientConstructor;
+  };
+};
 
-// gRPC Client setup
-const client = new ticketProto.TicketService(
-  'localhost:50051',
-  grpc.credentials.createInsecure()
-);
+const TicketService = protoDescriptor.ticket?.TicketService;
 
-export async function POST(request: Request) {
+if (!TicketService) {
+  throw new Error('Failed to load TicketService from proto file');
+}
+
+const GRPC_SERVER_URL = process.env.GRPC_SERVER_URL || 'localhost:50051';
+
+interface CheckInRequestBody {
+  ticketToken: string;
+}
+
+interface CheckInResponse {
+  status: 'SUCCESS' | 'ALREADY_CHECKED_IN' | 'INVALID_TICKET' | 'UNAUTHORIZED' | 'UNKNOWN';
+  ticketId?: string;
+  concertTitle?: string;
+  seatNumber?: string;
+  attendeeName?: string;
+  checkedInAt?: string;
+  error?: string;
+}
+
+export async function POST(request: NextRequest): Promise<NextResponse<CheckInResponse>> {
   try {
-    const { ticketToken } = await request.json();
+    const body = (await request.json()) as CheckInRequestBody;
+    const { ticketToken } = body;
 
     if (!ticketToken) {
-      return NextResponse.json({ error: 'Ticket token is required' }, { status: 400 });
+      return NextResponse.json(
+        { status: 'INVALID_TICKET', error: 'Missing ticketToken' },
+        { status: 400 }
+      );
     }
 
-    return new Promise<Response>((resolve) => {
-      client.CheckInTicket(
+    // Create gRPC client with non-null assertion since we checked above
+    const client = new TicketService!(
+      GRPC_SERVER_URL,
+      grpc.credentials.createInsecure()
+    ) as grpc.Client & Record<string, unknown>;
+
+    // Call gRPC method
+    return await new Promise((resolve) => {
+      const checkInMethod = client.CheckInTicket as unknown as (
+        req: { ticketToken: string; adminSecret: string },
+        cb: (err: grpc.ServiceError | null, res?: Record<string, unknown>) => void
+      ) => void;
+      
+      checkInMethod(
         {
-          ticketToken: ticketToken,
-          adminSecret: 'super-admin-secret-key-123456',
+          ticketToken,
+          adminSecret: process.env.ADMIN_SECRET || 'dev-admin-secret',
         },
-        (error: grpc.ServiceError | null, response: CheckInResponse) => {
+        (error, response) => {
+          client.close();
+
           if (error) {
-            console.error('gRPC CheckIn Error:', error);
-            resolve(
+            console.error('gRPC error:', error);
+            return resolve(
               NextResponse.json(
-                { error: error.message || 'gRPC Server Connection Failed' },
+                { status: 'UNKNOWN', error: error.message },
                 { status: 500 }
               )
             );
-          } else {
-            resolve(NextResponse.json(response));
           }
+
+          if (!response) {
+            return resolve(
+              NextResponse.json(
+                { status: 'UNKNOWN', error: 'No response from server' },
+                { status: 500 }
+              )
+            );
+          }
+
+          // Map gRPC enum to string
+          const statusMap: Record<number, CheckInResponse['status']> = {
+            0: 'UNKNOWN',
+            1: 'SUCCESS',
+            2: 'ALREADY_CHECKED_IN',
+            3: 'INVALID_TICKET',
+            4: 'UNAUTHORIZED',
+          };
+
+          const result: CheckInResponse = {
+            status: statusMap[response.status as number] || 'UNKNOWN',
+            ticketId: response.ticketId as string,
+            concertTitle: response.concertTitle as string,
+            seatNumber: response.seatNumber as string,
+            attendeeName: response.attendeeName as string,
+            checkedInAt: response.checkedInAt as string,
+          };
+
+          return resolve(NextResponse.json(result));
         }
       );
     });
   } catch (err) {
-    console.error('API Handler Error:', err);
-    const errorMessage = err instanceof Error ? err.message : 'Internal Server Error';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    console.error('API route error:', err);
+    return NextResponse.json(
+      { status: 'UNKNOWN', error: (err as Error).message },
+      { status: 500 }
+    );
   }
 }
