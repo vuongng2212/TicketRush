@@ -15,7 +15,7 @@ interface MobileMenuProps {
  * Editorial Mobile Menu — full-screen black panel, no rounded, no animation
  * A11y: focus trap, ESC closes, restore focus on close
  */
-export const MobileMenu = ({ isOpen, onClose, user, onLoginClick, onLogoutClick, onCityChange }: MobileMenuProps) => {
+export const MobileMenu = ({ isOpen, onClose, user, onLoginClick, onLogoutClick }: MobileMenuProps) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
