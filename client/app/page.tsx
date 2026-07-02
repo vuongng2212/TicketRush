@@ -170,19 +170,22 @@ export default function Home() {
         user={user}
         onLogoutClick={logout}
         onMenuClick={() => setIsMobileMenuOpen((v) => !v)}
+        onCityChange={setSelectedCity}
       />
       <MobileMenu
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
         user={user}
         onLogoutClick={logout}
+        onCityChange={setSelectedCity}
       />
 
       <main className="flex-1">
         <HeroSection
           city={selectedCity}
           timeBucket="TỐI NAY"
-          eventCount={buckets.tonight.length + buckets.weekend.length}
+          eventCount={buckets.tonight.length + buckets.weekend.length + buckets.onSale.length}
+          photoUrl={featuredEvent?.imageUrl}
           onCityChange={setSelectedCity}
         />
 
@@ -193,21 +196,27 @@ export default function Home() {
           />
         )}
 
-        <TimeBucket
-          title="TỐI NAY"
-          events={buckets.tonight}
-          onEventSelect={setBookingEventId}
-        />
-        <TimeBucket
-          title="CUỐI TUẦN"
-          events={buckets.weekend}
-          onEventSelect={setBookingEventId}
-        />
-        <TimeBucket
-          title="ĐANG MỞ BÁN"
-          events={buckets.onSale}
-          onEventSelect={setBookingEventId}
-        />
+        <div id="tonight">
+          <TimeBucket
+            title="TỐI NAY"
+            events={buckets.tonight}
+            onEventSelect={setBookingEventId}
+          />
+        </div>
+        <div id="weekend">
+          <TimeBucket
+            title="CUỐI TUẦN"
+            events={buckets.weekend}
+            onEventSelect={setBookingEventId}
+          />
+        </div>
+        <div id="onsale">
+          <TimeBucket
+            title="ĐANG MỞ BÁN"
+            events={buckets.onSale}
+            onEventSelect={setBookingEventId}
+          />
+        </div>
       </main>
 
       <Footer />

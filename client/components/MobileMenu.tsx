@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 interface MobileMenuProps {
@@ -8,12 +9,15 @@ interface MobileMenuProps {
   user?: { email: string } | null;
   onLoginClick?: () => void;
   onLogoutClick?: () => void;
+  onCityChange?: (city: 'Hà Nội' | 'Sài Gòn' | 'Đà Nẵng') => void;
 }
 
 /**
  * Editorial Mobile Menu — full-screen black panel, no rounded, no animation
  */
-export const MobileMenu = ({ isOpen, onClose, user, onLoginClick, onLogoutClick }: MobileMenuProps) => {
+export const MobileMenu = ({ isOpen, onClose, user, onLoginClick, onLogoutClick, onCityChange }: MobileMenuProps) => {
+  const router = useRouter();
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -24,6 +28,24 @@ export const MobileMenu = ({ isOpen, onClose, user, onLoginClick, onLogoutClick 
       document.body.style.overflow = '';
     };
   }, [isOpen]);
+
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    onClose();
+  };
+
+  const handleCityChange = (city: 'Hà Nội' | 'Sài Gòn' | 'Đà Nẵng') => {
+    onCityChange?.(city);
+    onClose();
+  };
+
+  const handleSearchNavigation = () => {
+    router.push('/search');
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -50,19 +72,60 @@ export const MobileMenu = ({ isOpen, onClose, user, onLoginClick, onLogoutClick 
 
       <nav className="flex-1 px-6 py-12 overflow-y-auto">
         <ul className="space-y-8">
-          {['Hôm nay', 'Cuối tuần', 'Hà Nội', 'Sài Gòn', 'Đà Nẵng', 'Nghệ sĩ', 'Về chúng tôi'].map(
-            (label) => (
-              <li key={label}>
-                <a
-                  href="#"
-                  onClick={onClose}
-                  className="font-display uppercase text-paper hover:text-coral text-[40px] leading-none tracking-[-0.02em] block"
-                >
-                  {label}
-                </a>
-              </li>
-            ),
-          )}
+          <li>
+            <button
+              type="button"
+              onClick={() => scrollToSection('tonight')}
+              className="font-display uppercase text-paper hover:text-coral text-[40px] leading-none tracking-[-0.02em] block"
+            >
+              Hôm nay
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              onClick={() => scrollToSection('weekend')}
+              className="font-display uppercase text-paper hover:text-coral text-[40px] leading-none tracking-[-0.02em] block"
+            >
+              Cuối tuần
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              onClick={() => handleCityChange('Hà Nội')}
+              className="font-display uppercase text-paper hover:text-coral text-[40px] leading-none tracking-[-0.02em] block"
+            >
+              Hà Nội
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              onClick={() => handleCityChange('Sài Gòn')}
+              className="font-display uppercase text-paper hover:text-coral text-[40px] leading-none tracking-[-0.02em] block"
+            >
+              Sài Gòn
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              onClick={() => handleCityChange('Đà Nẵng')}
+              className="font-display uppercase text-paper hover:text-coral text-[40px] leading-none tracking-[-0.02em] block"
+            >
+              Đà Nẵng
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              onClick={handleSearchNavigation}
+              className="font-display uppercase text-paper hover:text-coral text-[40px] leading-none tracking-[-0.02em] block"
+            >
+              Nghệ sĩ
+            </button>
+          </li>
         </ul>
       </nav>
 
