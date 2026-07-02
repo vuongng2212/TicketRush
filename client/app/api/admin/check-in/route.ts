@@ -54,6 +54,19 @@ export async function POST(request: NextRequest): Promise<NextResponse<CheckInRe
       );
     }
 
+    // Check admin JWT from Authorization header (preferred) or fallback to env secret (dev only)
+    const authHeader = request.headers.get('Authorization');
+    let adminSecret = process.env.ADMIN_SECRET || 'dev-admin-secret';
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      // For production: validate JWT token here
+      // For now, accept any non-empty token as valid
+      if (token) {
+        adminSecret = token; // Use token as credential
+      }
+    }
+
     // Create gRPC client with non-null assertion since we checked above
     const client = new TicketService!(
       GRPC_SERVER_URL,
@@ -70,7 +83,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<CheckInRe
       checkInMethod(
         {
           ticketToken,
-          adminSecret: process.env.ADMIN_SECRET || 'dev-admin-secret',
+          adminSecret,
         },
         (error, response) => {
           client.close();
