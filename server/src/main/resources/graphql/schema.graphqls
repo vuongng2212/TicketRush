@@ -115,10 +115,13 @@ type MyTicketDetail {
     concertTitle: String!
     venue: String!
     startTime: String!
+    endTime: String!
+    seatSection: String!
+    seatRow: String!
     seatNumber: String!
-    zoneName: String!
     price: Float!
-    purchasedAt: String!
+    orderStatus: String!
+    orderId: ID!
 }
 
 enum PaymentMethod {

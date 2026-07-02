@@ -94,32 +94,14 @@ public class BookingGraphQLController {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Authenticated user not found in database"));
         
-        List<Ticket> tickets = ticketRepository.findByUserId(user.getId());
-        List<MyTicketDetail> result = new ArrayList<>();
+        List<Order> orders = orderRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
+        List<MyTicketDetail> allTickets = new ArrayList<>();
         
-        for (Ticket ticket : tickets) {
-            Seat seat = seatRepository.findById(ticket.getSeatId()).orElse(null);
-            if (seat == null) continue;
-            
-            SeatZone zone = seatZoneRepository.findById(seat.getSeatZoneId()).orElse(null);
-            if (zone == null) continue;
-            
-            Concert concert = concertRepository.findById(zone.getConcertId()).orElse(null);
-            if (concert == null) continue;
-            
-            result.add(MyTicketDetail.builder()
-                    .id(ticket.getId())
-                    .ticketCode(ticket.getTicketCode())
-                    .concertTitle(concert.getTitle())
-                    .venue(concert.getVenue())
-                    .startTime(concert.getStartTime())
-                    .seatNumber(seat.getSeatNumber())
-                    .zoneName(zone.getName())
-                    .price(zone.getPrice())
-                    .purchasedAt(ticket.getCreatedAt())
-                    .build());
+        for (Order order : orders) {
+            List<MyTicketDetail> orderTickets = ticketRepository.getTicketDetailsByOrderId(order.getId());
+            allTickets.addAll(orderTickets);
         }
         
-        return result;
+        return allTickets;
     }
 }

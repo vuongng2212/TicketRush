@@ -7,9 +7,9 @@ import { LoadingState } from '../components/LoadingState';
 import { ErrorState } from '../components/ErrorState';
 import { EmptyState } from '../components/EmptyState';
 
-const MY_ORDERS = gql`
-  query MyOrders {
-    myOrders {
+const GET_MY_TICKETS = gql`
+  query GetMyTickets {
+    getMyTickets {
       id
       ticketCode
       concertTitle
@@ -41,13 +41,13 @@ interface MyTicketDetail {
   orderId: string;
 }
 
-interface MyOrdersData {
-  myOrders: MyTicketDetail[];
+interface GetMyTicketsData {
+  getMyTickets: MyTicketDetail[];
 }
 
 export default function MyTicketsPage() {
   const { token, user } = useAuth();
-  const { data, loading, error } = useQuery<MyOrdersData>(MY_ORDERS, {
+  const { data, loading, error } = useQuery<GetMyTicketsData>(GET_MY_TICKETS, {
     skip: !token,
   });
 
@@ -67,7 +67,7 @@ export default function MyTicketsPage() {
     return <ErrorState message={error.message} />;
   }
 
-  const tickets: MyTicketDetail[] = data?.myOrders || [];
+  const tickets: MyTicketDetail[] = data?.getMyTickets || [];
 
   if (tickets.length === 0) {
     return <EmptyState message="Bạn chưa có vé nào" />;

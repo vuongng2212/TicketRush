@@ -11,4 +11,5 @@ import java.util.UUID;
 public interface OrderRepository extends JpaRepository<Order, UUID> {
     Optional<Order> findByIdAndUserId(UUID id, UUID userId);
     List<Order> findByUserId(UUID userId);
+    List<Order> findByUserIdOrderByCreatedAtDesc(UUID userId);
 }
